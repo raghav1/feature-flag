@@ -50,6 +50,7 @@ npm --prefix demo run dev          # demo with hot reload
 - Flyway migrations are append-only once committed.
 - Errors are `ProblemDetail` (`application/problem+json`).
 - Null-check before `Set.of(...)`/`List.of(...).contains(x)`: immutable collections throw NPE on null. This has bitten us three times.
+- Don't assert on the real `XSRF-TOKEN` cookie in MockMvc tests: `.with(csrf())` changes the shared filter (see docs/ai-log.md, known issue). Real CSRF behaviour lives in `CsrfRoundTripTest`.
 - New HTTP behaviour needs an `ApiTest` (real Postgres via Testcontainers). Anything about roles also needs a row in `RoleMatrixApiTest`.
 
 ## Frontend

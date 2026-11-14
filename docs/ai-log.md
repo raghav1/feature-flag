@@ -35,4 +35,23 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
 - **`-parameters` missing:** without the Spring Boot parent pom, `@PathVariable` names weren't in the bytecode. Added it to the root compiler config. A stale incremental build hid the fix until a `clean`.
 - **The `contains(null)` trap a third time**, in `RoleAccessPolicy` (`Set.of("dev").contains(null)`). The "editor only gets exactly dev" test caught it. Now a rule in CLAUDE.md.
 - **Coverage gap found by the matrix:** `GET /api/flags` (list) was broken. I'd passed a lambda returning null as a `ResultSetExtractor`. `FlagApiTest` never called the list endpoint; the matrix's READ cells did. Fixed, and `FlagApiTest` now covers the list too.
-- **Order-dependent test:** the MockMvc check for the XSRF cookie passed alone and failed in the full suite. Probably MockMvc's `csrf()` post-processor changing the CSRF filter in the shared Spring context (not proven). Replaced it with `CsrfRoundTripTest`: a real server on a random port and a real cookie jar, covering cookie → header → accepted, header missing → 403, and forged token → 403. That's a stronger test than the one it replaced.
+- **Order-dependent test:** the MockMvc check for the XSRF cookie passed alone and failed in the full suite. I first replaced it with `CsrfRoundTripTest` (a real server on a random port with a real cookie jar) and guessed at the cause. On review I was told not to just replace it, so I investigated (timeboxed to 5 minutes). See the known issue below.
+
+## Known issue: MockMvc `csrf()` changes the shared CSRF filter
+
+**What was confirmed** with a temporary ordered experiment test (two methods sharing one Spring context):
+
+| Moment | CSRF repository on the filter | `XSRF-TOKEN` cookie on `GET /api/auth/me` |
+|---|---|---|
+| before any `csrf()` request | `CookieCsrfTokenRepository` | set |
+| after one request using `.with(csrf())` | `TestCsrfTokenRepository` | **not set** |
+
+`SecurityMockMvcRequestPostProcessors.csrf()` swaps the CSRF filter's repository for a test wrapper, and the filter lives in Spring's cached test context, so the swap persists. Every `ApiTest` class shares that context. In the full suite, earlier classes (FlagApiTest, RoleMatrixApiTest…) used `csrf()` before AuthApiTest's cookie test ran, so the cookie test saw the changed filter. Run alone, it happened to run first. That's why it passed alone and failed in the suite.
+
+**What is not explained yet:** why the wrapper suppresses the cookie on requests that never used `csrf()`. In the bytecode, `TestCsrfTokenRepository.saveToken` delegates to the real repository when the request isn't marked "enabled", so I expected the cookie to still be set. I stopped at the 5-minute timebox.
+
+**Consequences and what we do about it:**
+- Don't assert on the real CSRF cookie in MockMvc tests. That behaviour is tested in `CsrfRoundTripTest`, which runs a real server (`RANDOM_PORT`, its own Spring context) and never uses `csrf()`, so the change above can't reach it.
+- Is the "missing token → 403" check in AuthApiTest still meaningful after the swap? Yes: it doesn't use `csrf()`, so the wrapper passes straight through to the real repository, finds no token and rejects. `CsrfRoundTripTest` also checks missing and forged tokens over real HTTP.
+- Production isn't affected; this only happens under spring-security-test.
+- Recorded in CLAUDE.md so later tests don't trip over it.
