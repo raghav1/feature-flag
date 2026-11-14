@@ -2,7 +2,7 @@
 
 An internal feature-flag and progressive-rollout service: admin dashboard, Java backend on PostgreSQL, and a demo storefront that reads the flags.
 
-> Work in progress. Phases 0–1 are done: the scaffold and the evaluation engine. See [docs/plan.md](docs/plan.md).
+> Work in progress. Phases 0–1 are done: scaffold and evaluation engine (86 tests). See [docs/plan.md](docs/plan.md).
 
 ## Run it
 
