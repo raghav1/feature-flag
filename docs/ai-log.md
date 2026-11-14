@@ -123,3 +123,15 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
   4. Disabled inputs didn't look disabled (prod rules for an editor looked editable). Styled them.
 - **Designed for, then verified:** toggling a flag bumps that environment's version, which would make an in-progress rules edit fail with a false 409. The editor rebases silently when only the version moved, and reports a real conflict only when the rules themselves changed. Tested both: edit + toggle + save → 200; edit + someone else's rules change + save → 409 with a warning.
 - **Testing lesson:** with the browser pane hidden, screenshots were sometimes stale frames that contradicted the DOM (one showed "No changes recorded yet" right after a successful save). I went by DOM reads and re-checked; noted in CLAUDE.md.
+
+## Phase 5: README and a reviewer's first run
+
+- **Prompt:** move to step 5 (README with setup, endpoint table and assumptions; clean clone → `docker compose up` → everything works).
+- **README rewritten for a reviewer:** run it, logins, a two-minute walkthrough (which doubles as the video script), what's built mapped to the brief's must-haves, how evaluation works, the API, tests, assumptions, what's missing and how I'd build it, and the AI process.
+- **Hardened for other machines:** host ports are overridable (`ADMIN_PORT`, `DEMO_PORT`, `BACKEND_PORT`, `POSTGRES_PORT`), and Postgres binds to `127.0.0.1:5433` so it doesn't clash with a local Postgres. The demo build now receives the same SDK keys as the backend, because Vite bakes them in. An empty build arg falls back to the default (`||`, not `??`).
+- **Verified the reviewer path end to end:**
+  - `git clone` into a scratch folder: 150 tracked files, no PDFs, no `.env`, nothing personal.
+  - `docker compose build --no-cache`: 179 s cold. All four services up and health UP.
+  - Every step of the README walkthrough checked against that stack: each demo user's reasons, `can` per role, and the admin change to dark-mode (history "rollout 25% → 100%", "turned ON") reaching every user with an ID but not anonymous visitors.
+  - `./test.sh` in the clone with no `JAVA_HOME`: green in 73 s, 225 Java tests (run in the container) + 16 frontend.
+- **Agent slip, caught:** my first walkthrough script's one-line Python formatter broke on shell quoting and printed syntax errors instead of results. I re-ran the checks with the formatter in a script file instead of treating the run as passed.
