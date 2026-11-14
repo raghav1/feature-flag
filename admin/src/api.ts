@@ -164,6 +164,7 @@ export const api = {
   createKey: (name: string, role: Role, expiresInDays: number) =>
     request<CreatedKey>("POST", "/api/keys", { name, role, expiresInDays }),
   revokeKey: (id: number) => request<void>("DELETE", `/api/keys/${id}`),
+  recentActivity: (limit = 200) => request<AuditEvent[]>("GET", `/api/audit?limit=${limit}`),
   audit: (flagKey: string) =>
     request<AuditEvent[]>("GET", `/api/audit?${new URLSearchParams({ flag: flagKey, limit: "20" }).toString()}`),
 };

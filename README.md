@@ -32,8 +32,8 @@ If a port is already taken, override it: `ADMIN_PORT`, `DEMO_PORT`, `BACKEND_POR
 
 1. Open the **demo** (http://localhost:5174). **Viewing as** Ben (acme) sees the *New dashboard* and *Beta reports* cards. The debug panel says why: "matched rule 1 (user ID list)", "matched rule 1 (customer list)", "flag is OFF in prod".
 2. Switch to **Dee**: still the new dashboard, this time via "rule 3 (% rollout)". Switch to **Eli**: nothing matches, so you get the classic home page. Switch **Env** to dev: everything is ON and the store goes dark (`dark-mode`).
-3. Open the **admin** (http://localhost:5173) and sign in as `editor`. The prod switches are disabled and prod rules are read-only. Dev is editable.
-4. Sign in as `admin`, open `dark-mode`, and in **prod** change the rollout from 25% to 100%. Turn on its prod switch.
+3. Open the **admin** (http://localhost:5173) and sign in as `editor`. Each flag is a row that says whether it's **Live, Partial or Off in prod** and who gets it, in plain words. The prod switches are locked for an editor; click a row to expand it, and dev is editable.
+4. Sign in as `admin`, expand `dark-mode`, and in **Production** change the rollout to 100% and save. Turn on its prod switch: a dialog says who will get it before anything changes.
 5. Back in the demo (prod), no refresh is needed: the change arrives over the live stream and every user with an ID now gets the dark theme. The flag's history in the admin reads "admin · prod · rollout 25% → 100%" and "admin · prod · turned ON".
 
 ## What's built
@@ -237,14 +237,14 @@ Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, 
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 341 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 350 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
 | `backend` | 205 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules, ID suggestions; **MCP with a real MCP client**: key auth (missing, wrong, revoked, expired, session-vs-key), every tool, the role matrix through tools, a full flag lifecycle driven by an agent |
 | `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
-| `admin`, `demo` | 24 | rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
+| `admin`, `demo` | 33 | plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
 
 No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md).
 

@@ -15,9 +15,9 @@ export function effectiveIds(draft: { ids: readonly string[]; pending: string })
 }
 
 export const RULE_LABELS: Record<DraftRule["type"], string> = {
-  users: "User ID in",
-  customers: "Customer in",
-  percent: "Percentage rollout",
+  users: "Specific users",
+  customers: "Specific customers",
+  percent: "Percentage of users",
 };
 
 /** Splits on commas, spaces and newlines; drops empties and duplicates, keeps order. */

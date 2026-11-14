@@ -6,6 +6,7 @@ export const keys = {
   environments: ["environments"] as const,
   flags: ["flags"] as const,
   audit: (flagKey: string) => ["audit", flagKey] as const,
+  activity: ["audit", "*"] as const,
   keys: ["keys"] as const,
 };
 
@@ -13,6 +14,16 @@ export const meQuery = queryOptions({ queryKey: keys.me, queryFn: api.me, staleT
 export const environmentsQuery = queryOptions({ queryKey: keys.environments, queryFn: api.environments, staleTime: Infinity });
 export const flagsQuery = queryOptions({ queryKey: keys.flags, queryFn: api.flags });
 export const keysQuery = queryOptions({ queryKey: keys.keys, queryFn: api.keys });
+/** The latest changes across all flags, to show "last changed by" on each row. */
+export const activityQuery = queryOptions({ queryKey: keys.activity, queryFn: () => api.recentActivity() });
+
+/** After any change to a flag: refetch flags and history (the flag's own, and the all-flags activity). */
+export function refreshFlag(queryClient: QueryClient, flagKey: string) {
+  void queryClient.invalidateQueries({ queryKey: keys.flags });
+  void queryClient.invalidateQueries({ queryKey: keys.audit(flagKey) });
+  void queryClient.invalidateQueries({ queryKey: keys.activity });
+}
+
 export const auditQuery = (flagKey: string) => queryOptions({ queryKey: keys.audit(flagKey), queryFn: () => api.audit(flagKey) });
 
 /**

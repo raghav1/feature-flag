@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, ApiError, type EnvironmentState, type Rule } from "./api";
+import { ArrowDown, ArrowUp, Building2, Globe, PieChart, Plus, Trash2, Users, type LucideIcon } from "lucide-react";
 import { IdListInput } from "./IdListInput";
-import { keys } from "./queries";
+import { refreshFlag } from "./queries";
 import { RULE_LABELS, draftProblems, fromDraft, move, newDraft, toDraft, type DraftRule } from "./rules";
 
 interface RuleEditorProps {
@@ -44,10 +45,7 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
   }, [state]);
 
   /** Our copy may be stale (a conflict, or a reload): fetch the flag and its history again. */
-  const refetchFlags = () => {
-    void queryClient.invalidateQueries({ queryKey: keys.flags });
-    void queryClient.invalidateQueries({ queryKey: keys.audit(flagKey) });
-  };
+  const refetchFlags = () => refreshFlag(queryClient, flagKey);
 
   /** Drop local edits. Also refetches, because after a conflict the cached state is stale; with no edits left,
    *  the effect above adopts whatever the server now has. */
@@ -87,110 +85,112 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
         </p>
       )}
 
+      <p className="muted small rules-intro">Checked top to bottom. The first rule that matches decides.</p>
       <ol className="rule-list">
-        {drafts.map((rule, i) => (
-          <li key={i} className="rule">
-            <span className="num">{i + 1}.</span>
-            <span className="rule-label">{RULE_LABELS[rule.type]}</span>
-            {rule.type === "percent" ? (
-              <span className="percent">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={rule.percent}
+        {drafts.map((rule, i) => {
+          const Icon = RULE_ICONS[rule.type];
+          const problem = problems.get(i);
+          return (
+            <li key={i} className={`rule-card rule-${rule.type}`}>
+              <div className="rule-head">
+                <span className={`rule-icon ${rule.type}`} aria-hidden="true">
+                  <Icon size={16} />
+                </span>
+                <span className="rule-title">
+                  <span className="muted">{i === 0 ? "If" : "Else if"}</span> <strong>{RULE_LABELS[rule.type]}</strong>
+                </span>
+                <span className="spacer" />
+                <ServeToggle
+                  value={rule.serve}
                   disabled={!canEdit}
-                  aria-label={`Rule ${i + 1} percentage`}
-                  onChange={(e) => update(i, { ...rule, percent: Number(e.target.value) })}
+                  label={`Rule ${i + 1} serves`}
+                  onChange={(serve) => update(i, { ...rule, serve })}
                 />
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={rule.percent}
-                  disabled={!canEdit}
-                  aria-label={`Rule ${i + 1} percentage value`}
-                  onChange={(e) => update(i, { ...rule, percent: Number(e.target.value) })}
-                />
-                %
-              </span>
-            ) : (
-              <IdListInput
-                kind={rule.type === "users" ? "user" : "customer"}
-                ids={rule.ids}
-                pending={rule.pending}
-                onChange={(ids, pending) => update(i, { ...rule, ids, pending })}
-                disabled={!canEdit}
-                label={`Rule ${i + 1} ${rule.type === "users" ? "user IDs" : "customers"}`}
-                placeholder={rule.type === "users" ? "Type a user ID, e.g. u_102" : "Type a customer, e.g. acme"}
-              />
-            )}
-            <span className="arrow">→</span>
-            <select
-              value={rule.serve ? "on" : "off"}
-              disabled={!canEdit}
-              aria-label={`Rule ${i + 1} serves`}
-              onChange={(e) => update(i, { ...rule, serve: e.target.value === "on" })}
-            >
-              <option value="on">ON</option>
-              <option value="off">OFF</option>
-            </select>
-            {canEdit && (
-              <span className="rule-actions">
-                <button type="button" aria-label={`Move rule ${i + 1} up`} disabled={i === 0} onClick={() => setDrafts((d) => move(d, i, i - 1))}>
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Move rule ${i + 1} down`}
-                  disabled={i === drafts.length - 1}
-                  onClick={() => setDrafts((d) => move(d, i, i + 1))}
-                >
-                  ↓
-                </button>
-                <button type="button" aria-label={`Remove rule ${i + 1}`} onClick={() => setDrafts((d) => d.filter((_, j) => j !== i))}>
-                  ✕
-                </button>
-              </span>
-            )}
-            {problems.has(i) && (
-              <span className={`${problems.get(i)?.severity === "hint" ? "muted" : "error"} small rule-problem`}>
-                {problems.get(i)?.message}
-              </span>
-            )}
-          </li>
-        ))}
-        <li className="rule otherwise">
-          <span className="num" />
-          <span className="rule-label">Otherwise</span>
-          <span className="arrow">→</span>
-          <select
-            value={otherwise ? "on" : "off"}
-            disabled={!canEdit}
-            aria-label="Otherwise serves"
-            onChange={(e) => setOtherwise(e.target.value === "on")}
-          >
-            <option value="on">ON</option>
-            <option value="off">OFF</option>
-          </select>
+                {canEdit && (
+                  <span className="rule-actions">
+                    <button type="button" className="icon-button" aria-label={`Move rule ${i + 1} up`} disabled={i === 0}
+                      onClick={() => setDrafts((d) => move(d, i, i - 1))}>
+                      <ArrowUp size={15} />
+                    </button>
+                    <button type="button" className="icon-button" aria-label={`Move rule ${i + 1} down`} disabled={i === drafts.length - 1}
+                      onClick={() => setDrafts((d) => move(d, i, i + 1))}>
+                      <ArrowDown size={15} />
+                    </button>
+                    <button type="button" className="icon-button danger-hover" aria-label={`Remove rule ${i + 1}`}
+                      onClick={() => setDrafts((d) => d.filter((_, j) => j !== i))}>
+                      <Trash2 size={15} />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <div className="rule-body">
+                {rule.type === "percent" ? (
+                  <div className="percent">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={rule.percent}
+                      disabled={!canEdit}
+                      aria-label={`Rule ${i + 1} percentage`}
+                      onChange={(e) => update(i, { ...rule, percent: Number(e.target.value) })}
+                    />
+                    <span className="percent-value">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={rule.percent}
+                        disabled={!canEdit}
+                        aria-label={`Rule ${i + 1} percentage value`}
+                        onChange={(e) => update(i, { ...rule, percent: Number(e.target.value) })}
+                      />
+                      % of users
+                    </span>
+                  </div>
+                ) : (
+                  <IdListInput
+                    kind={rule.type === "users" ? "user" : "customer"}
+                    ids={rule.ids}
+                    pending={rule.pending}
+                    onChange={(ids, pending) => update(i, { ...rule, ids, pending })}
+                    disabled={!canEdit}
+                    label={`Rule ${i + 1} ${rule.type === "users" ? "user IDs" : "customers"}`}
+                    placeholder={rule.type === "users" ? "Type a user ID, e.g. u_102" : "Type a customer, e.g. acme"}
+                  />
+                )}
+                {problem && <p className={`${problem.severity === "hint" ? "muted" : "error"} small rule-problem`}>{problem.message}</p>}
+              </div>
+            </li>
+          );
+        })}
+        <li className="rule-card otherwise">
+          <div className="rule-head">
+            <span className="rule-icon otherwise" aria-hidden="true">
+              <Globe size={16} />
+            </span>
+            <span className="rule-title">
+              <span className="muted">{drafts.length === 0 ? "Everyone" : "Everyone else"}</span>
+            </span>
+            <span className="spacer" />
+            <ServeToggle value={otherwise} disabled={!canEdit} label="Otherwise serves" onChange={setOtherwise} />
+          </div>
         </li>
       </ol>
 
       {canEdit && (
-        <div className="row">
-          <select
-            aria-label="Add rule"
-            value=""
-            onChange={(e) => {
-              const type = e.target.value as DraftRule["type"];
-              if (type) setDrafts((d) => [...d, newDraft(type)]);
-            }}
-          >
-            <option value="">+ Add rule…</option>
-            <option value="users">User ID in…</option>
-            <option value="customers">Customer in…</option>
-            <option value="percent">Percentage rollout</option>
-          </select>
+        <div className="rule-footer">
+          <span className="add-rule" role="group" aria-label="Add rule">
+            <span className="muted small">Add rule:</span>
+            {(["users", "customers", "percent"] as const).map((type) => {
+              const Icon = RULE_ICONS[type];
+              return (
+                <button key={type} type="button" className="chip-button" onClick={() => setDrafts((d) => [...d, newDraft(type)])}>
+                  <Plus size={13} /> <Icon size={14} /> {RULE_LABELS[type]}
+                </button>
+              );
+            })}
+          </span>
           <span className="spacer" />
           <button type="button" disabled={!dirty || save.isPending} onClick={discard}>
             Discard
@@ -222,5 +222,33 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
       )}
       {save.isSuccess && !dirty && <p className="muted small">Saved.</p>}
     </div>
+  );
+}
+
+const RULE_ICONS: Record<DraftRule["type"], LucideIcon> = {
+  users: Users,
+  customers: Building2,
+  percent: PieChart,
+};
+
+/** Two-button ON/OFF control: what this rule (or "everyone else") gets. */
+function ServeToggle({ value, disabled, label, onChange }: { value: boolean; disabled: boolean; label: string; onChange: (v: boolean) => void }) {
+  return (
+    <span className="serve" role="radiogroup" aria-label={label}>
+      <span className="muted small">gets</span>
+      {[true, false].map((on) => (
+        <button
+          key={String(on)}
+          type="button"
+          role="radio"
+          aria-checked={value === on}
+          disabled={disabled}
+          className={value === on ? `serve-option selected ${on ? "on" : "off"}` : "serve-option"}
+          onClick={() => onChange(on)}
+        >
+          {on ? "ON" : "OFF"}
+        </button>
+      ))}
+    </span>
   );
 }
