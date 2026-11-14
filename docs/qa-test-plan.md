@@ -2,6 +2,8 @@
 
 Manual test plan for the three ways people and agents use the service: the **admin dashboard**, the **demo storefront** and the **MCP server**. It complements the automated suite (`./test.sh`, see README → Tests), which covers the engine, the API's role matrix, the SDK and UI logic but has no browser end-to-end tests. This plan covers what only a person at a browser or an MCP client can check: the flows, the wording, the visuals, and the systems working together.
 
+For a short run (a demo or a smoke test), start with the [top 25](qa-top-25.md).
+
 ## 1. Scope
 
 | In scope | Out of scope |
