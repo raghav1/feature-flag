@@ -52,11 +52,11 @@ Beyond them:
 - **Role-based access** (a stretch item): admin / editor / viewer, enforced on the server, so only admins can change prod.
 - **Results-only evaluation API**: SDK keys are public, so no rules or targeting lists are ever returned.
 - **Optimistic locking**: concurrent edits get a clear conflict, not a silent overwrite.
-- **Resilience**: the demo renders with everything OFF if the flag service is down.
+- **Resilience**: if the flag service is down, the demo keeps its last known flags (marked stale), or renders with everything OFF if it has none.
 
 - **Live updates** (stretch): the demo listens to a server-sent event stream and refetches when a flag changes, so admin changes show up without a refresh. It reconnects by itself after outages and catches up on anything it missed.
 
-Not built yet: the TypeScript client SDK. See [What's missing](#whats-missing-and-how-id-build-it).
+- **TypeScript client SDK** (stretch): `client.isEnabled("new-dashboard", user)` from an in-memory cache, kept fresh by polling and the live stream. It **keeps working from cache during a backend outage**, even across a page reload. The demo uses it. See [SDK](#typescript-sdk).
 
 ## Architecture
 
@@ -73,7 +73,8 @@ Not built yet: the TypeScript client SDK. See [What's missing](#whats-missing-an
 | `engine/` | The evaluation engine. **Plain Java 21, no dependencies** (a Maven enforcer rule fails the build if one is added), so it can be tested hard. |
 | `backend/` | Spring Boot 3: REST API, session login with CSRF, `AccessPolicy` (the one place permissions are decided), audit, Flyway migrations. |
 | `admin/` | Admin dashboard, React + TypeScript + Vite, served by nginx. |
-| `demo/` | Demo storefront, React + TypeScript + Vite, served by nginx. |
+| `demo/` | Demo storefront, React + TypeScript + Vite, served by nginx. Reads flags through the SDK. |
+| `sdk/` | TypeScript client SDK: cached `isEnabled`, polling, live updates, outage fallback. |
 | `docs/` | [plan.md](docs/plan.md) (design), [ai-log.md](docs/ai-log.md) (how the AI was directed). |
 
 ## How evaluation works
@@ -157,6 +158,26 @@ POST /api/evaluate   X-SDK-Key: prod-sdk-key
 - The key goes in the query string because browsers' `EventSource` can't send headers; SDK keys are public anyway.
 - A keepalive comment every 20 s keeps proxies from closing idle streams.
 
+### TypeScript SDK
+
+`sdk/` has no runtime dependencies and is used by the demo:
+
+```ts
+import { createClient } from "@flags/sdk";
+
+const flags = createClient({ sdkKey: "prod-sdk-key", storage: localStorage });
+await flags.load(user);                         // before first render; never rejects
+flags.isEnabled("new-dashboard", user);         // synchronous, from the cache; unknown → false
+flags.subscribe(() => rerender());              // polling, live events and outages all notify
+flags.state(user);                              // { status: "fresh" | "stale" | "unavailable" | "loading", flags, error? }
+```
+
+- **Cache:** results are cached per user, holding the least recently used 100.
+- **Freshness:** refreshed every 30 s and on every live `changed` event. After a reconnect it refetches, because events sent while disconnected are lost.
+- **Outages:** a failed refresh keeps the last results and marks them `stale`. With `storage`, results survive a reload during an outage. A first load that fails leaves the user `unavailable`, and `isEnabled` returns the fallback.
+- **Reconnects:** it reopens the stream itself after HTTP errors. (Browsers' EventSource gives up for good on a proxy's 502.)
+- **Packaging:** it's consumed from source inside this repo (`"@flags/sdk": "file:../sdk"`). Publishing it would need a build step to JavaScript.
+
 ### Demo users
 
 They're fictional, and each takes a different path through the seeded prod rules for `new-dashboard` (users u_102, u_207 → customers acme → 10% rollout → otherwise OFF):
@@ -176,12 +197,13 @@ They're fictional, and each takes a different path through the seeded prod rules
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 246 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 267 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
-| `backend` | 139 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules |
+| `backend` | 139 |
+| `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules |
 | `admin`, `demo` | 16 | rule-draft parsing, relative times, reason explanations, URL state |
 
 No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md).
@@ -202,11 +224,12 @@ No end-to-end browser tests (per the brief). Each UI flow was checked by hand in
 12. Audit summaries don't name the environment, since each entry has its own `envKey` field.
 13. The SDK key decides the environment, rather than an `env` field in the request.
 14. `/api/evaluate` exposes the matched rule's position and kind (e.g. "rule 3, percent") for debugging, never who is targeted.
-15. When the flag service is unreachable, the demo treats every flag as OFF (safe default) and says so.
+15. When the flag service is unreachable, the demo keeps showing the last known flags (marked stale), from memory or from `localStorage` after a reload. With nothing cached, every flag is OFF (safe default). Either way the page says so.
+16. Live updates may take up to ~30 s to resume after a long outage (reconnect backoff is capped at 30 s), and polling refreshes values every 30 s regardless.
 
 ## What's missing, and how I'd build it
 
-- **TypeScript SDK:** `client.isEnabled("new-dashboard", user)` on top of `/api/evaluate`, with an in-memory per-user result cache refreshed by polling (or the SSE stream) and served from cache during an outage. The demo's fetch-before-render and all-OFF fallback are the start of it.
+- **SDK for servers:** the SDK evaluates on the server per user, which suits browsers (no rules leak). A Node/back-end SDK could instead download the rules with a server-only key and evaluate locally with a port of the engine. That's faster at scale, but it needs a second, secret key type.
 - **Scale:** evaluation reads flags from Postgres on every call, and the change stream lives in one backend instance's memory. With more traffic I'd keep an in-memory snapshot per environment, invalidated on writes, and fan changes out across instances with Postgres `LISTEN/NOTIFY`.
 - **Production hardening:**
   - real secrets for SDK keys and DB credentials;
@@ -230,7 +253,8 @@ Built with Claude Code, directed phase by phase, with a review and course correc
 engine/    evaluation engine (plain Java) + tests
 backend/   Spring Boot API, Flyway migrations (db/migration), tests
 admin/     admin dashboard (React)
-demo/      demo storefront (React)
+demo/      demo storefront (React), uses the SDK
+sdk/       TypeScript client SDK + tests
 docs/      plan.md, ai-log.md
 test.sh    every test + frontend builds
 ```

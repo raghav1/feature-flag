@@ -1,4 +1,5 @@
-import type { Env, EvaluationContext } from "./api";
+import type { User } from "@flags/sdk";
+import type { Env } from "./api";
 
 /** Fictional demo users, picked so each one takes a different path through the seeded prod rules. */
 export interface DemoUser {
@@ -25,11 +26,19 @@ export function label(user: DemoUser): string {
   return `${user.name}${id}${customer}`;
 }
 
-export function contextFor(user: DemoUser): EvaluationContext {
-  return {
-    ...(user.userId ? { userId: user.userId } : {}),
-    attributes: user.customer ? { customer: user.customer } : {},
-  };
+/** The SDK's view of a demo user. Same object per demo user, so the SDK's cache lookups stay cheap. */
+const SDK_USERS = new Map<string, User>();
+
+export function sdkUser(user: DemoUser): User {
+  let mapped = SDK_USERS.get(user.key);
+  if (!mapped) {
+    mapped = {
+      ...(user.userId ? { id: user.userId } : {}),
+      attributes: user.customer ? { customer: user.customer } : {},
+    };
+    SDK_USERS.set(user.key, mapped);
+  }
+  return mapped;
 }
 
 export interface Selection {

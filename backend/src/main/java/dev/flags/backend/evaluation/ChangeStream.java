@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -52,6 +54,16 @@ public class ChangeStream {
     void heartbeat() {
         subscribers.values().forEach(forEnv ->
                 forEnv.forEach(emitter -> send(forEnv, emitter, SseEmitter.event().comment("keepalive"))));
+    }
+
+    /**
+     * Streams never finish on their own, so graceful shutdown would wait for them until it times out (and Docker
+     * SIGKILLs the process). Close them as shutdown starts; clients reconnect by themselves.
+     */
+    @EventListener(ContextClosedEvent.class)
+    void closeAll() {
+        subscribers.values().forEach(forEnv -> forEnv.forEach(SseEmitter::complete));
+        subscribers.clear();
     }
 
     int subscriberCount(String envKey) {

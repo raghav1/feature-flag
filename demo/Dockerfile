@@ -1,12 +1,16 @@
+# Build context is the repo root: the demo depends on the SDK in ../sdk.
 FROM node:22-alpine AS build
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
+WORKDIR /src
+COPY sdk/package.json sdk/
+COPY demo/package.json demo/package-lock.json demo/
+RUN cd demo && npm ci
+COPY sdk/tsconfig.json sdk/
+COPY sdk/src sdk/src
+COPY demo/ demo/
 ARG VITE_SDK_KEY_DEV
 ARG VITE_SDK_KEY_PROD
-RUN npm run build
+RUN cd demo && npm run build
 
 FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY demo/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /src/demo/dist /usr/share/nginx/html

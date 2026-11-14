@@ -1,4 +1,5 @@
-import type { Env, FlagResult } from "./api";
+import type { FlagResult } from "@flags/sdk";
+import type { Env } from "./api";
 
 const RULE_LABELS: Record<string, string> = {
   users: "user ID list",

@@ -16,6 +16,8 @@
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
+        <!-- Also set as a property so IDE builds (e.g. VS Code's Java extension) keep parameter names too. -->
+        <maven.compiler.parameters>true</maven.compiler.parameters>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-boot.version>3.5.6</spring-boot.version>
         <junit.version>5.13.4</junit.version>

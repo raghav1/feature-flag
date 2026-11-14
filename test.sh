@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Runs every test and builds both frontends. Must be green before a commit.
+# Runs every test and builds the frontends and SDK. Must be green before a commit.
+# Java always builds clean: an IDE compiling into target/ (without -parameters) must not affect the result.
 #
 # Uses local Java 21+ and Node 20+ when they work; otherwise runs that half in Docker,
 # so a clean machine only needs Docker. Backend tests start Postgres via Testcontainers,
@@ -20,7 +21,7 @@ node_major() {
 
 if [ "$(java_major || true)" -ge 21 ] 2>/dev/null; then
   echo "==> Java: engine + backend (local JDK)"
-  ./mvnw -q -B verify
+  ./mvnw -q -B clean verify
 else
   echo "==> Java: engine + backend (no local JDK 21+, using Docker)"
   # The socket mount lets Testcontainers start Postgres next to this container;
@@ -32,10 +33,10 @@ else
     --add-host=host.docker.internal:host-gateway \
     -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
     maven:3.9-eclipse-temurin-21 \
-    mvn -q -B verify
+    mvn -q -B clean verify
 fi
 
-for app in admin demo; do
+for app in sdk admin demo; do
   if [ "$(node_major || true)" -ge 20 ] 2>/dev/null; then
     echo "==> $app: tests, typecheck + build (local Node)"
     npm --prefix "$app" ci --no-audit --no-fund --silent
@@ -43,9 +44,10 @@ for app in admin demo; do
     npm --prefix "$app" run --silent build
   else
     echo "==> $app: tests, typecheck + build (no local Node 20+, using Docker)"
-    # Anonymous volume over node_modules keeps Linux binaries out of the host checkout.
+    # Whole repo mounted (the demo depends on ../sdk); an anonymous volume over node_modules keeps
+    # Linux binaries out of the host checkout.
     docker run --rm \
-      -v "$ROOT/$app":/app -v /app/node_modules -w /app \
+      -v "$ROOT":/src -v "/src/$app/node_modules" -w "/src/$app" \
       node:22-alpine \
       sh -c "npm ci --no-audit --no-fund --silent && npm run --silent --if-present test && npm run --silent build"
   fi

@@ -1,11 +1,9 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import type { Env, FlagResult } from "./api";
+import { useRef, useState, useSyncExternalStore } from "react";
+import type { Env } from "./api";
 import { DebugPanel } from "./DebugPanel";
-import { flagsQuery } from "./queries";
+import { clientFor } from "./flags";
 import { Storefront } from "./Storefront";
-import { useLiveUpdates } from "./useLiveUpdates";
-import { DEMO_USERS, label, toSearch, type Selection } from "./users";
+import { DEMO_USERS, label, sdkUser, toSearch, type Selection } from "./users";
 
 interface AppProps {
   initialSelection: Selection;
@@ -14,17 +12,29 @@ interface AppProps {
 
 export function App({ initialSelection, resolvedInMs }: AppProps) {
   const [selection, setSelection] = useState(initialSelection);
-  // keepPreviousData: while a new user's flags load, keep showing the last complete set, then swap all at once.
-  const query = useQuery({ ...flagsQuery(selection), placeholderData: keepPreviousData });
-  const flags: Record<string, FlagResult> = query.data?.flags ?? {};
-  const isOn = (key: string) => flags[key]?.value === true;
-  const updating = query.isPlaceholderData || query.isFetching;
-  const live = useLiveUpdates(selection.env);
+  const [pending, setPending] = useState<Selection | null>(null);
+  const latestRequest = useRef<Selection | null>(null);
 
-  function select(next: Selection) {
-    setSelection(next);
+  const client = clientFor(selection.env);
+  const user = sdkUser(selection.user);
+  // Re-render whenever the SDK's cache or live status changes (polling, live events, outages).
+  const state = useSyncExternalStore(client.subscribe, () => client.state(user));
+  const live = useSyncExternalStore(client.subscribe, () => client.liveStatus());
+  const isOn = (key: string) => state.flags[key]?.value === true;
+
+  /** Keep showing the current user until the next one's flags are loaded, then swap all at once. */
+  async function select(next: Selection) {
+    latestRequest.current = next;
+    setPending(next);
     window.history.replaceState(null, "", toSearch(next));
+    await clientFor(next.env).load(sdkUser(next.user));
+    if (latestRequest.current === next) {
+      setSelection(next);
+      setPending(null);
+    }
   }
+
+  const shown = pending ?? selection;
 
   return (
     <div className={isOn("dark-mode") ? "page dark" : "page"}>
@@ -35,10 +45,10 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
           <label>
             Viewing as{" "}
             <select
-              value={selection.user.key}
+              value={shown.user.key}
               onChange={(e) => {
-                const user = DEMO_USERS.find((u) => u.key === e.target.value);
-                if (user) select({ ...selection, user });
+                const next = DEMO_USERS.find((u) => u.key === e.target.value);
+                if (next) void select({ ...shown, user: next });
               }}
             >
               {DEMO_USERS.map((u) => (
@@ -50,20 +60,25 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
           </label>
           <label>
             Env{" "}
-            <select value={selection.env} onChange={(e) => select({ ...selection, env: e.target.value as Env })}>
+            <select value={shown.env} onChange={(e) => void select({ ...shown, env: e.target.value as Env })}>
               <option value="prod">prod</option>
               <option value="dev">dev</option>
             </select>
           </label>
-          <button type="button" onClick={() => void query.refetch()} disabled={query.isFetching}>
+          <button type="button" onClick={() => void client.refresh()}>
             Refresh
           </button>
         </div>
       </header>
 
-      {query.isError && !query.data && (
+      {state.status === "unavailable" && (
         <p className="banner" role="alert">
-          Couldn't reach the flag service, so every feature is OFF. {query.error.message}
+          Couldn't reach the flag service, so every feature is OFF. {state.error}
+        </p>
+      )}
+      {state.status === "stale" && (
+        <p className="banner" role="status">
+          The flag service is unreachable; showing the last known flags.
         </p>
       )}
 
@@ -74,11 +89,12 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
           name={selection.user.userId ? selection.user.name : undefined}
         />
         <DebugPanel
-          flags={flags}
+          flags={state.flags}
           env={selection.env}
           user={label(selection.user)}
-          updating={updating}
+          updating={pending !== null}
           live={live}
+          cache={state.status}
           resolvedInMs={resolvedInMs}
         />
       </div>

@@ -41,7 +41,8 @@ services:
 
   demo:
     build:
-      context: ./demo
+      context: .
+      dockerfile: demo/Dockerfile
       # Vite bakes these into the bundle, so they must match the backend's keys.
       args:
         VITE_SDK_KEY_DEV: ${SDK_KEY_DEV:-dev-sdk-key}

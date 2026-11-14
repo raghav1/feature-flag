@@ -1,6 +1,6 @@
-import type { Env, FlagResult } from "./api";
+import type { CacheStatus, FlagResult, LiveStatus } from "@flags/sdk";
+import type { Env } from "./api";
 import { explain } from "./explain";
-import type { LiveStatus } from "./useLiveUpdates";
 
 interface DebugPanelProps {
   flags: Record<string, FlagResult>;
@@ -8,16 +8,25 @@ interface DebugPanelProps {
   user: string;
   updating: boolean;
   live: LiveStatus;
+  cache: CacheStatus;
   resolvedInMs: number;
 }
 
 const LIVE_LABELS: Record<LiveStatus, string> = {
+  off: "live updates off",
   connecting: "connecting…",
   live: "live updates on",
-  reconnecting: "reconnecting… (showing last results)",
+  reconnecting: "reconnecting…",
 };
 
-export function DebugPanel({ flags, env, user, updating, live, resolvedInMs }: DebugPanelProps) {
+const CACHE_LABELS: Record<CacheStatus, string> = {
+  loading: "loading",
+  fresh: "results are current",
+  stale: "showing last known results (flag service unreachable)",
+  unavailable: "no results (flag service unreachable)",
+};
+
+export function DebugPanel({ flags, env, user, updating, live, cache, resolvedInMs }: DebugPanelProps) {
   const keys = Object.keys(flags).sort();
   return (
     <aside className={updating ? "debug updating" : "debug"} aria-label="Flag debug panel">
@@ -57,7 +66,7 @@ export function DebugPanel({ flags, env, user, updating, live, resolvedInMs }: D
         </tbody>
       </table>
       <p className="muted small">
-        <span className={`live-dot ${live}`} aria-hidden="true" /> {LIVE_LABELS[live]}
+        <span className={`live-dot ${live}`} aria-hidden="true" /> {LIVE_LABELS[live]} · {CACHE_LABELS[cache]}
       </p>
       <p className="muted small">First flags resolved before first render ({resolvedInMs} ms).</p>
     </aside>

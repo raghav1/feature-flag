@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_USERS, contextFor, readSelection, toSearch } from "./users";
+import { DEMO_USERS, readSelection, sdkUser, toSearch } from "./users";
 
 describe("demo users", () => {
   it("sends the customer as an attribute and leaves out what a user doesn't have", () => {
     const ben = DEMO_USERS.find((u) => u.key === "u_207")!;
     const anonymous = DEMO_USERS.find((u) => u.key === "anonymous")!;
 
-    expect(contextFor(ben)).toEqual({ userId: "u_207", attributes: { customer: "acme" } });
-    expect(contextFor(anonymous)).toEqual({ attributes: {} });
+    expect(sdkUser(ben)).toEqual({ id: "u_207", attributes: { customer: "acme" } });
+    expect(sdkUser(anonymous)).toEqual({ attributes: {} });
+    expect(sdkUser(ben)).toBe(sdkUser(ben));
   });
 
   it("round-trips the selection through the URL", () => {

@@ -9,7 +9,8 @@ Internal feature-flag service: admin dashboard, Java backend on PostgreSQL, and 
 | `engine/` | Evaluation engine. Plain Java 21, JDK only. |
 | `backend/` | Spring Boot 3 REST API, Postgres via Flyway, auth, audit. Depends on `engine`. |
 | `admin/` | React + TS + Vite admin dashboard (port 5173). |
-| `demo/` | React + TS + Vite mock storefront (port 5174). |
+| `demo/` | React + TS + Vite mock storefront (port 5174). Reads flags only through the SDK. |
+| `sdk/` | TypeScript client SDK (no runtime deps). The demo depends on it via `file:../sdk`. |
 | `docs/` | `plan.md` (design), `ai-log.md` (how the agents were directed). |
 
 ## Commands
@@ -49,6 +50,8 @@ npm --prefix demo run dev          # demo with hot reload
 - Every mutation writes its audit row in the same transaction, with a plain-words summary ("rollout 5% → 10%") and the logged-in user as actor.
 - Flyway migrations are append-only once committed.
 - Errors are `ProblemDetail` (`application/problem+json`).
+- Long-lived responses (the SSE stream) must be closed on shutdown (`ChangeStream.closeAll`); otherwise graceful shutdown waits until Docker SIGKILLs the process.
+- Mutations that can change evaluation results publish `FlagChanged`; listeners act after commit only.
 - **Nulls stop at the boundary.** Request records normalise in their compact constructors (absent → `""`, empty list, or `Optional`), query params arrive as `Optional` with blank treated as absent, and the engine's `EvaluationContext` exposes `Optional` accessors. Services, rules and repositories never receive null; internal APIs `requireNonNull` instead of accepting "null means none". (We hit `Set.of(...).contains(null)` three times before fixing the cause.)
 - Don't assert on the real `XSRF-TOKEN` cookie in MockMvc tests: `.with(csrf())` changes the shared filter (see docs/ai-log.md, known issue). Real CSRF behaviour lives in `CsrfRoundTripTest`.
 - New HTTP behaviour needs an `ApiTest` (real Postgres via Testcontainers). Anything about roles also needs a row in `RoleMatrixApiTest`.
@@ -59,6 +62,8 @@ npm --prefix demo run dev          # demo with hot reload
 - TanStack Query for server state. Plain CSS; polished design is out of scope.
 - The admin UI never decides permissions itself: it enables controls from `can` on `/api/auth/me` (computed by `AccessPolicy`; `PermissionsMatchEnforcementApiTest` guards the two from drifting).
 - Switching users in the admin app goes through `switchSession()`, not `queryClient.clear()` (that detaches the `me` query from its observer).
+- Mutation-check new tests that "just pass": break the code on purpose and make sure the test fails (a stream test once passed against a broadcast-everything mutant).
+- Browser probes: scope selectors to the region you mean (`.store [data-flag=…]`, not the whole document; the debug panel reuses `data-flag`), and disconnect old MutationObservers before attaching new ones.
 - Browser checks: trust the DOM (`read_page`, `javascript_tool`) over screenshots. When the browser pane is hidden, screenshots can be stale frames.
 - `/api/evaluate` is public by design (SDK keys ship to browsers): it must never return rules or targeting data. `EvaluateApiTest.responseContainsResultsOnlyNeverRules` guards this.
 - Treat the flag service as fallible: time out, render with everything OFF, and say so.
