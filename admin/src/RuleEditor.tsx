@@ -4,7 +4,7 @@ import { api, ApiError, type EnvironmentState, type Rule } from "./api";
 import { ArrowDown, ArrowUp, Building2, Globe, PieChart, Plus, Trash2, Users, type LucideIcon } from "lucide-react";
 import { IdListInput } from "./IdListInput";
 import { refreshFlag } from "./queries";
-import { RULE_LABELS, draftProblems, fromDraft, move, newDraft, toDraft, type DraftRule } from "./rules";
+import { RULE_LABELS, draftProblems, fromDraft, hasRejectedText, move, newDraft, toDraft, type DraftRule } from "./rules";
 
 interface RuleEditorProps {
   flagKey: string;
@@ -195,7 +195,8 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
             })}
           </span>
           <span className="spacer" />
-          <button type="button" disabled={!dirty || save.isPending} onClick={discard}>
+          {/* Rejected text (e.g. "bad#id") isn't a rule change, but it's still an edit Discard must be able to clear. */}
+          <button type="button" disabled={!(dirty || hasRejectedText(drafts)) || save.isPending} onClick={discard}>
             Discard
           </button>
           <button

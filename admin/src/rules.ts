@@ -51,6 +51,11 @@ export function addIds(current: readonly string[], text: string): IdEntry {
   return { ids, rejected };
 }
 
+/** True when some rule's box holds text that can't become an ID: an edit to throw away, though no rule changed. */
+export function hasRejectedText(drafts: readonly DraftRule[]): boolean {
+  return drafts.some((d) => d.type !== "percent" && addIds(d.ids, d.pending).rejected.length > 0);
+}
+
 export function toDraft(rule: Rule): DraftRule {
   switch (rule.type) {
     case "users":

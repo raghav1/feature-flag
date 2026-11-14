@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Rule } from "./api";
-import { addIds, draftProblems, effectiveIds, fromDraft, isValidId, move, newDraft, parseIds, toDraft } from "./rules";
+import { addIds, draftProblems, effectiveIds, fromDraft, hasRejectedText, isValidId, move, newDraft, parseIds, toDraft } from "./rules";
 
 describe("parseIds", () => {
   it("accepts commas, spaces and newlines, and drops empties and duplicates", () => {
@@ -75,3 +75,13 @@ describe("move", () => {
     expect(move(["a", "b"], 1, 2)).toEqual(["a", "b"]);
   });
 });
+
+describe("hasRejectedText", () => {
+  it("is true only when a box holds text that can't become an ID", () => {
+    expect(hasRejectedText([{ type: "users", ids: ["u_102"], pending: "bad#id", serve: true }])).toBe(true);
+    expect(hasRejectedText([{ type: "users", ids: ["u_102"], pending: "u_501", serve: true }])).toBe(false);
+    expect(hasRejectedText([{ type: "customers", ids: [], pending: "", serve: true }])).toBe(false);
+    expect(hasRejectedText([{ type: "percent", percent: 10, serve: true }])).toBe(false);
+  });
+});
+
