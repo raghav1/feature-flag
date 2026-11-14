@@ -16,7 +16,7 @@ Internal feature-flag service: admin dashboard, Java backend on PostgreSQL, and 
 
 ```bash
 docker compose up --build          # everything: postgres, backend :8080, admin :5173, demo :5174
-./test.sh                          # all tests + frontend builds; must be green before a commit
+./test.sh                          # all tests + frontend builds; needs only Docker; must be green before a commit
 ./mvnw -pl engine test             # engine tests only
 ./mvnw -pl backend spring-boot:run # backend against a local postgres
 npm --prefix admin run dev         # admin with hot reload
@@ -49,6 +49,8 @@ npm --prefix demo run dev          # demo with hot reload
 - Every mutation writes its audit row in the same transaction, with a plain-words summary ("rollout 5% → 10%") and the logged-in user as actor.
 - Flyway migrations are append-only once committed.
 - Errors are `ProblemDetail` (`application/problem+json`).
+- Null-check before `Set.of(...)`/`List.of(...).contains(x)`: immutable collections throw NPE on null. This has bitten us three times.
+- New HTTP behaviour needs an `ApiTest` (real Postgres via Testcontainers). Anything about roles also needs a row in `RoleMatrixApiTest`.
 
 ## Frontend
 
