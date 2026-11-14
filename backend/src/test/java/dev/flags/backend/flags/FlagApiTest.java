@@ -121,6 +121,23 @@ class FlagApiTest extends ApiTest {
     }
 
     @Test
+    void malformedUserAndCustomerIdsAreRejectedWithTheFieldNamed() throws Exception {
+        String key = createFlag(admin, uniqueKey("ids"));
+
+        putRules(admin, key, "dev", "[{\"type\":\"users\",\"userIds\":[\"u_102\",\"u 207\"]}]", false, 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("rules[0].userIds[1]"))
+                .andExpect(jsonPath("$.errors[0].message").value(org.hamcrest.Matchers.startsWith("must start with a letter or digit")));
+        putRules(admin, key, "dev", "[{\"type\":\"customers\",\"customerIds\":[\"acme!\"]}]", false, 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("rules[0].customerIds[0]"));
+
+        // Unknown but well-formed IDs are allowed: you can target someone before their first visit.
+        putRules(admin, key, "dev", "[{\"type\":\"users\",\"userIds\":[\"ufajfhkj\",\"ana@example.com\"]}]", false, 0)
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void rulesRoundTripInOrderAndServeDefaultsToOn() throws Exception {
         String key = createFlag(admin, uniqueKey("roundtrip"));
         String rules = """

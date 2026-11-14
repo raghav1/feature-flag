@@ -160,3 +160,16 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
 - **Two real bugs found while verifying 6b:**
   1. **Backend restarts were SIGKILLed whenever a demo was connected:** Spring Boot 3.4+ shuts down gracefully and waited for the never-ending SSE stream until Docker killed it (exit 137, 19 s). The same thing made the test JVM hang 30 s on exit ("Surefire is going to kill self fork JVM"), visible only in the full output. Fixed by closing every stream on `ContextClosedEvent`, which comes before the graceful wait. Now `docker compose stop backend` with a stream open takes 1 s with a clean exit (143), and the test JVM exits normally.
   2. **Stale classes without `-parameters` came back:** `EvaluationController.class` was rewritten without parameter names, making the stream endpoint 500 in tests. The likely source is VS Code's Java extension (running throughout the session), which compiles Maven projects straight into `target/classes`. That would also explain the identical failure in phase 2. Not proven, but `test.sh` now always builds Java **clean**, and the root pom also sets `maven.compiler.parameters` for IDE builds.
+
+## Rule IDs: format checks and "seen" users (server side)
+
+- **Prompt (from a review screenshot):** a rule accepted the user ID `ufajfhkj`, and IDs have to be typed from memory.
+- **Asked before deciding:** the service has no user directory, so "invalid" can mean *malformed* or *never seen*. Blocking unseen IDs would stop you targeting a new customer before their first visit. **Chosen: suggest + warn.** Malformed IDs are rejected; unseen ones are allowed, with a warning in the editor.
+- **Server side (committed separately from the editor UI):**
+  - rule IDs must match `^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$`, with field-level 400s such as `rules[0].userIds[1]`;
+  - `/api/evaluate` records the user ID and `customer` it sees, best effort: only well-formed IDs, recording failures never fail an evaluation, and it runs outside the read-only transaction;
+  - `GET /api/contexts?kind=user|customer&query=` gives suggestions, and `GET /api/contexts/unseen?kind=&value=…` lists IDs never seen;
+  - the demo users are seeded so suggestions work on a fresh start;
+  - LIKE wildcards in the query are escaped (tested: `_` doesn't match everything).
+- **Still to do:** the editor's chip input with autocomplete and unseen warnings.
+- **Open, parked:** the test JVM occasionally takes 30 s to exit ("Surefire is going to kill self fork JVM"). It's intermittent, didn't reproduce on a re-run, and no test fails. The production shutdown fix (closing SSE streams) is verified separately.

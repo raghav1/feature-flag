@@ -1,6 +1,7 @@
 package dev.flags.backend.evaluation;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import dev.flags.backend.contexts.ContextService;
 import dev.flags.backend.error.UnauthorizedException;
 import dev.flags.engine.EvaluationContext;
 import dev.flags.engine.Reason;
@@ -70,19 +71,23 @@ class EvaluationController {
     private final SdkKeys sdkKeys;
     private final EvaluationService evaluation;
     private final ChangeStream changes;
+    private final ContextService contexts;
 
-    EvaluationController(SdkKeys sdkKeys, EvaluationService evaluation, ChangeStream changes) {
+    EvaluationController(SdkKeys sdkKeys, EvaluationService evaluation, ChangeStream changes, ContextService contexts) {
         this.sdkKeys = sdkKeys;
         this.evaluation = evaluation;
         this.changes = changes;
+        this.contexts = contexts;
     }
 
     @PostMapping("/api/evaluate")
     EvaluateResponse evaluate(@RequestHeader(SDK_KEY_HEADER) Optional<String> sdkKey, @Valid @RequestBody EvaluateRequest body) {
         String env = environmentFor(sdkKey);
+        EvaluationContext context = body.context().toEngineContext();
         Map<String, FlagResult> results = new LinkedHashMap<>();
-        evaluation.evaluate(env, body.context().toEngineContext(), body.flags())
-                .forEach((key, result) -> results.put(key, FlagResult.of(result)));
+        evaluation.evaluate(env, context, body.flags()).forEach((key, result) -> results.put(key, FlagResult.of(result)));
+        // Outside evaluate()'s read-only transaction; best effort, never fails the request.
+        contexts.recordSeen(context);
         return new EvaluateResponse(env, results);
     }
 
