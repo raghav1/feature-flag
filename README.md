@@ -20,7 +20,7 @@ docker compose up --build
 
 ## Tests
 
-Prerequisites: JDK 21+, Node 20+.
+Prerequisite: Docker (running). A local JDK 21+ and Node 20+ are used when present; otherwise `test.sh` runs those steps in containers.
 
 ```bash
 ./test.sh
