@@ -14,3 +14,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+# One SDK key per environment; a key can only evaluate its own environment. Defaults are for local dev only.
+app:
+  sdk-keys:
+    dev: ${SDK_KEY_DEV:dev-sdk-key}
+    prod: ${SDK_KEY_PROD:prod-sdk-key}

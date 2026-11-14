@@ -37,16 +37,17 @@ fi
 
 for app in admin demo; do
   if [ "$(node_major || true)" -ge 20 ] 2>/dev/null; then
-    echo "==> $app: typecheck + build (local Node)"
+    echo "==> $app: tests, typecheck + build (local Node)"
     npm --prefix "$app" ci --no-audit --no-fund --silent
+    npm --prefix "$app" run --silent --if-present test
     npm --prefix "$app" run --silent build
   else
-    echo "==> $app: typecheck + build (no local Node 20+, using Docker)"
+    echo "==> $app: tests, typecheck + build (no local Node 20+, using Docker)"
     # Anonymous volume over node_modules keeps Linux binaries out of the host checkout.
     docker run --rm \
       -v "$ROOT/$app":/app -v /app/node_modules -w /app \
       node:22-alpine \
-      sh -c "npm ci --no-audit --no-fund --silent && npm run --silent build"
+      sh -c "npm ci --no-audit --no-fund --silent && npm run --silent --if-present test && npm run --silent build"
   fi
 done
 

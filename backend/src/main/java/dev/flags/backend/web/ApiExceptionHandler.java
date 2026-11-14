@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
 import dev.flags.backend.error.ConflictException;
 import dev.flags.backend.error.ForbiddenException;
 import dev.flags.backend.error.NotFoundException;
+import dev.flags.backend.error.UnauthorizedException;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -36,6 +37,11 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ForbiddenException.class)
     ProblemDetail forbidden(ForbiddenException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    ProblemDetail unauthorized(UnauthorizedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 
     @ExceptionHandler(AuthenticationException.class)

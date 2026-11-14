@@ -45,7 +45,7 @@ npm --prefix demo run dev          # demo with hot reload
 ## Backend
 
 - Java 21, no Lombok. Records for DTOs.
-- DB↔engine mapping only in `EngineMapper`. Authorization only in `AccessPolicy`, enforced on the server and never in the UI alone.
+- DB↔engine mapping only in `EngineMapper`; each `RuleSpec` maps itself via `toEngineRule()`, so a new rule type doesn't touch the mapper. Authorization only in `AccessPolicy`, enforced on the server and never in the UI alone.
 - Every mutation writes its audit row in the same transaction, with a plain-words summary ("rollout 5% → 10%") and the logged-in user as actor.
 - Flyway migrations are append-only once committed.
 - Errors are `ProblemDetail` (`application/problem+json`).
@@ -57,6 +57,8 @@ npm --prefix demo run dev          # demo with hot reload
 
 - TypeScript `strict`, no `any`. API types live in one `api.ts` per app.
 - TanStack Query for server state. Plain CSS; polished design is out of scope.
+- `/api/evaluate` is public by design (SDK keys ship to browsers): it must never return rules or targeting data. `EvaluateApiTest.responseContainsResultsOnlyNeverRules` guards this.
+- Treat the flag service as fallible: time out, render with everything OFF, and say so.
 
 ## Data
 

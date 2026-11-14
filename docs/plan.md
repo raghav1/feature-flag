@@ -130,10 +130,12 @@ Errors use `application/problem+json`. Validation runs at the boundary (`@Valid`
 | PUT | `/api/flags/{key}/envs/{env}/enabled` | per role table | `{enabled, version}` |
 | PUT | `/api/flags/{key}/envs/{env}/rules` | per role table | `{rules, otherwise, version}` |
 | GET | `/api/audit?flag=&env=&limit=` | logged in | newest first |
-| POST | `/api/evaluate` | SDK key | `{env, context:{userId, attributes:{customer:"acme"}}, flags?}` → `{key: {value, reason, ruleIndex}}` |
+| POST | `/api/evaluate` | SDK key (decides the env) | `{context:{userId, attributes:{customer:"acme"}}, flags?}` → `{environment, flags: {key: {value, reason, ruleIndex?, ruleType?}}}`. Results only, never rules |
 | GET | `/api/envs/{env}/stream` | SDK key | *(stretch)* SSE "config changed" |
 
 An unknown flag at `/evaluate` returns `false` with `FLAG_NOT_FOUND` and HTTP 200, so a typo can't crash a client. Evaluation always runs on the server, so targeting lists never reach a browser.
+
+*Changed in phase 3:* the environment comes from the SDK key instead of an `env` field, so a dev key can't read prod. Results also carry `ruleType` ("users", "customers", "percent") for the debug panel; it names the kind of rule, not its targets.
 
 ## Frontends
 

@@ -42,11 +42,13 @@ class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/api/auth/login"))
+                        .ignoringRequestMatchers("/api/auth/login", "/api/evaluate"))
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .securityContext(sc -> sc.securityContextRepository(contextRepository))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        // SDK-key auth, checked by EvaluationController via SdkKeys; no user session.
+                        .requestMatchers(HttpMethod.POST, "/api/evaluate").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex

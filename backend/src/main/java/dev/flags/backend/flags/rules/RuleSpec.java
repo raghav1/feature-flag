@@ -1,19 +1,31 @@
 package dev.flags.backend.flags.rules;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import dev.flags.engine.Rule;
 
 /**
- * A targeting rule as it appears in the API and in the flag_environment.rules column. Adding a rule type is a
- * new record here plus one {@link JsonSubTypes} line.
+ * A targeting rule as it appears in the admin API and in the flag_environment.rules column. Adding a rule type
+ * is a new record (with {@link JsonTypeName} and {@link #toEngineRule()}) plus one {@link JsonSubTypes} line.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = UsersRule.class, name = "users"),
-    @JsonSubTypes.Type(value = CustomersRule.class, name = "customers"),
-    @JsonSubTypes.Type(value = PercentRule.class, name = "percent"),
+    @JsonSubTypes.Type(UsersRule.class),
+    @JsonSubTypes.Type(CustomersRule.class),
+    @JsonSubTypes.Type(PercentRule.class),
 })
 public interface RuleSpec {
+
+    /** The engine rule this spec describes. */
+    Rule toEngineRule();
+
+    /** The JSON "type" name, e.g. "users". Safe to expose: it names the kind of rule, not its targets. */
+    @JsonIgnore
+    default String typeName() {
+        return getClass().getAnnotation(JsonTypeName.class).value();
+    }
 
     /** Value served when this rule matches. Defaults to ON when omitted. */
     Boolean serve();
