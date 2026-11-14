@@ -5,8 +5,9 @@ services:
       POSTGRES_DB: flags
       POSTGRES_USER: flags
       POSTGRES_PASSWORD: flags
+    # Localhost only, on 5433 so it doesn't clash with a Postgres already running on 5432.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +24,10 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/flags
       DB_USER: flags
       DB_PASSWORD: flags
+      SDK_KEY_DEV: ${SDK_KEY_DEV:-dev-sdk-key}
+      SDK_KEY_PROD: ${SDK_KEY_PROD:-prod-sdk-key}
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,14 +35,19 @@ services:
   admin:
     build: ./admin
     ports:
-      - "5173:80"
+      - "${ADMIN_PORT:-5173}:80"
     depends_on:
       - backend
 
   demo:
-    build: ./demo
+    build:
+      context: ./demo
+      # Vite bakes these into the bundle, so they must match the backend's keys.
+      args:
+        VITE_SDK_KEY_DEV: ${SDK_KEY_DEV:-dev-sdk-key}
+        VITE_SDK_KEY_PROD: ${SDK_KEY_PROD:-prod-sdk-key}
     ports:
-      - "5174:80"
+      - "${DEMO_PORT:-5174}:80"
     depends_on:
       - backend
 

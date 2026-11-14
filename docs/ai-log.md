@@ -1,6 +1,35 @@
 # AI log
 
-How the coding agent (Claude Code) was directed, and where it needed correcting.
+How the coding agent (Claude Code) was directed, and where it needed correcting. Each phase began with a short prompt and ended with a stop for review. The conventions it worked to are in [CLAUDE.md](../CLAUDE.md), and the design in [plan.md](plan.md).
+
+## Highlights
+
+**Course corrections from review**
+- A planned `EvaluationContext(userId, customerId)` would have broken the open/closed principle the plan had just adopted. It became `userId` + attributes, with a test using an attribute the engine has never seen.
+- `./test.sh` only worked on one machine. It now needs only Docker, and all three paths (local JDK, no JDK, no JDK and no Node) were verified.
+- An order-dependent CSRF test had been *replaced*. I was asked to *investigate* it instead, which confirmed the trigger; the unexplained part is recorded as a known issue.
+- A null crash came up three times and was fixed each time where it appeared. I was asked to fix the cause, so nulls are now normalised once at the API boundary, and rules and services can't receive one.
+
+**Agent asked before deciding:**
+- where to put the repo (it was started inside an unrelated personal project);
+- whether to change the `/me` API shape for UI permissions.
+
+**Bugs caught by tests the agent wrote:**
+- `GET /api/flags` broken (caught by the role-matrix READ cells);
+- missing `-parameters`;
+- Testcontainers vs Docker 29;
+- `contains(null)` on immutable collections.
+
+**Bugs only real-browser testing caught:**
+- login appeared stuck;
+- "Reload" after a conflict restored stale rules;
+- a dead backend blanked the demo for 60 s;
+- nginx refused to start without the backend.
+
+**Weak checks the agent caught in its own verification:**
+- an enforcer probe that couldn't fail;
+- a flicker observer that couldn't see the change;
+- stale screenshots from a hidden browser pane (it then trusted DOM reads instead).
 
 ## Planning
 
