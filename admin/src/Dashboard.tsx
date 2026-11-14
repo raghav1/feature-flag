@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Flag, History, KeyRound, LogOut } from "lucide-react";
-import { useState } from "react";
+import { Flag, History, KeyRound, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
 import { api, type Me } from "./api";
 import { ActivityPage } from "./ActivityPage";
 import { ApiKeysPage } from "./ApiKeysPage";
 import { FlagsPage } from "./FlagsPage";
 import { switchSession } from "./queries";
+import { nextPreference, setPreference, themeStore, type ThemePreference } from "./theme";
 
 export function Dashboard({ me }: { me: Me }) {
   const queryClient = useQueryClient();
@@ -52,6 +53,7 @@ export function Dashboard({ me }: { me: Me }) {
             <span className={`role ${me.role.toLowerCase()}`}>{me.role.toLowerCase()}</span>
           </span>
         </span>
+        <ThemeToggle />
         <button type="button" className="icon-button" aria-label="Log out" title="Log out" onClick={() => logout.mutate()}>
           <LogOut size={17} />
         </button>
@@ -69,5 +71,26 @@ export function Dashboard({ me }: { me: Me }) {
         <FlagsPage me={me} />
       )}
     </div>
+  );
+}
+
+const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
+const THEME_NAMES: Record<ThemePreference, string> = { system: "system", light: "light", dark: "dark" };
+
+/** Cycles system → light → dark. Icon-only, so it carries an accessible name. */
+function ThemeToggle() {
+  const preference = useSyncExternalStore(themeStore.subscribe, themeStore.getPreference);
+  const Icon = THEME_ICONS[preference];
+  const next = nextPreference(preference);
+  return (
+    <button
+      type="button"
+      className="icon-button"
+      aria-label={`Theme: ${THEME_NAMES[preference]}. Switch to ${THEME_NAMES[next]}`}
+      title={`Theme: ${THEME_NAMES[preference]}`}
+      onClick={() => setPreference(next)}
+    >
+      <Icon size={17} />
+    </button>
   );
 }

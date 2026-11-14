@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, ApiError, type EnvironmentState, type Rule } from "./api";
 import { ArrowDown, ArrowUp, Building2, Globe, PieChart, Plus, Trash2, Users, type LucideIcon } from "lucide-react";
 import { IdListInput } from "./IdListInput";
@@ -33,7 +33,11 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
 
   // Follow the server: take its state when we have no edits; when only the version moved (e.g. someone toggled
   // the flag), rebase silently so saving doesn't fail for a change that doesn't touch the rules.
-  useEffect(() => {
+  // Done during render when a new server state arrives (React's "adjusting state when a prop changes"), not in
+  // an effect: no extra commit showing stale drafts, and no effect used for render logic.
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
     if (!dirty) {
       setBase({ rules: state.rules, otherwise: state.otherwise, version: state.version });
       setDrafts(state.rules.map(toDraft));
@@ -41,14 +45,13 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
     } else if (!conflict && state.version !== base.version) {
       setBase((b) => ({ ...b, version: state.version }));
     }
-    // Deliberately keyed on the server state only, not on local edits.
-  }, [state]);
+  }
 
   /** Our copy may be stale (a conflict, or a reload): fetch the flag and its history again. */
   const refetchFlags = () => refreshFlag(queryClient, flagKey);
 
   /** Drop local edits. Also refetches, because after a conflict the cached state is stale; with no edits left,
-   *  the effect above adopts whatever the server now has. */
+   *  the sync above adopts whatever the server now has. */
   const discard = () => {
     setBase({ rules: state.rules, otherwise: state.otherwise, version: state.version });
     setDrafts(state.rules.map(toDraft));

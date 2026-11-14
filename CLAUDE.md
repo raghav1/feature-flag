@@ -62,7 +62,8 @@ npm --prefix demo run dev          # demo with hot reload
 ## Frontend
 
 - TypeScript `strict`, no `any`. API types live in one `api.ts` per app.
-- TanStack Query for server state. Plain CSS with the tokens in `admin/src/styles.css`; icons from `lucide-react` (pinned).
+- TanStack Query for server state. Plain CSS; icons from `lucide-react` (pinned).
+- **Admin design system (GitHub/Primer-style):** colour only via the semantic tokens in `admin/src/styles.css`, defined for light and dark; `contrast.test.ts` fails if a text/background pair drops below 4.5:1 in either theme, so add new pairs there. Spacing via `--space-*` (4px grid); 6px radius; borders over shadows; animate only `transform`/`opacity`; every icon-only control has an `aria-label`; no `useEffect` for render logic (derive, or adjust state during render; effects only to sync with external systems).
 - The admin is for product managers, not a system of record. Lead with what matters (is it live, for whom), in plain words from `audience.ts` (unit-tested so the summary can't drift from the engine's semantics), with status always shown as icon + word, not colour alone. Changes to prod confirm first, saying who's affected.
 - The admin UI never decides permissions itself: it enables controls from `can` on `/api/auth/me` (computed by `AccessPolicy`; `PermissionsMatchEnforcementApiTest` guards the two from drifting).
 - Switching users in the admin app goes through `switchSession()`, not `queryClient.clear()` (that detaches the `me` query from its observer).

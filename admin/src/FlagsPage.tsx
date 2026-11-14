@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Info, Plus, Search } from "lucide-react";
+import { Flag, Info, Plus, Search, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { AuditEvent, Me } from "./api";
 import { envStatus, type EnvStatus } from "./audience";
+import { Blankslate } from "./Blankslate";
 import { FlagRow } from "./FlagRow";
 import { NewFlagForm } from "./NewFlagForm";
 import { activityQuery, environmentsQuery, flagsQuery } from "./queries";
@@ -138,9 +139,15 @@ export function FlagsPage({ me }: { me: Me }) {
       ) : flags.isError ? (
         <p className="error">Couldn't load flags: {flags.error.message}</p>
       ) : visible.length === 0 ? (
-        <div className="empty">
-          {all.length === 0 ? "No flags yet. Create one to get started." : "No flags match your search or filter."}
-        </div>
+        all.length === 0 ? (
+          <Blankslate icon={Flag} title="No flags yet">
+            {me.can.createFlag ? "Create a flag to ship a feature dark, then turn it on for the people you choose." : "When someone creates a flag, it shows up here."}
+          </Blankslate>
+        ) : (
+          <Blankslate icon={SearchX} title="No flags match">
+            Try a different search, or pick All.
+          </Blankslate>
+        )
       ) : (
         <ul className="flag-list">
           {visible.map((flag) => (

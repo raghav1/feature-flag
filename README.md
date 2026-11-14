@@ -237,14 +237,14 @@ Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, 
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 360 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 419 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
 | `backend` | 211 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules, ID suggestions; **MCP with a real MCP client**: key auth (missing, wrong, revoked, expired, session-vs-key), every tool, the role matrix through tools, a full flag lifecycle driven by an agent |
 | `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
-| `admin`, `demo` | 37 | activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
+| `admin`, `demo` | 96 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the stylesheet), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
 
 No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md).
 

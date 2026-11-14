@@ -4,7 +4,9 @@ import { createRoot } from "react-dom/client";
 import { ApiError } from "./api";
 import { App } from "./App";
 import { keys } from "./queries";
+import "@fontsource-variable/inter";
 import "./styles.css";
+import { applyTheme } from "./theme";
 
 // Any 401 means the session ended (expired or logged out elsewhere): drop back to the login page.
 function onError(error: Error) {
@@ -20,6 +22,8 @@ const queryClient = new QueryClient({
     queries: { retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2 },
   },
 });
+
+applyTheme();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root element missing from index.html");

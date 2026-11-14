@@ -1,8 +1,9 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { FilePlus2, ListChecks, Pencil, Power, PowerOff, Search, Trash2, type LucideIcon } from "lucide-react";
+import { FilePlus2, History, ListChecks, Pencil, Power, PowerOff, Search, SearchX, Trash2, type LucideIcon } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import { api, type AuditAction, type AuditEvent, type AuditSearch } from "./api";
 import { Avatar } from "./Activity";
+import { Blankslate } from "./Blankslate";
 import { CHANGE_LABELS, changeKind, groupByDay, highlight, type ChangeKind } from "./activityLog";
 import { ago } from "./format";
 import { environmentsQuery, keys } from "./queries";
@@ -121,7 +122,15 @@ export function ActivityPage({ onOpenFlag }: { onOpenFlag: (flagKey: string, env
       ) : trail.isError ? (
         <p className="error">Couldn't load activity: {trail.error.message}</p>
       ) : events.length === 0 ? (
-        <div className="empty">{active ? "No changes match these filters." : "Nothing has changed yet."}</div>
+        active ? (
+          <Blankslate icon={SearchX} title="No changes match">
+            Try other words or filters, or <button type="button" className="link-button" onClick={clear}>clear them</button>.
+          </Blankslate>
+        ) : (
+          <Blankslate icon={History} title="Nothing has changed yet">
+            Every change to a flag will be listed here: who made it, where, and what changed.
+          </Blankslate>
+        )
       ) : (
         <>
           {groupByDay(events).map((group) => (

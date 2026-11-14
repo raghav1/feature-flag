@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ open, title, children, confirmLabel, danger, onConfirm, onCancel }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
+  // An effect is right here: it syncs React's `open` with the browser's <dialog> API (showModal/close),
+  // an external system, rather than computing anything for render.
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;

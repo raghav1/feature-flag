@@ -220,3 +220,17 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
 - **The page:** grouped by day (Today / Yesterday / date), an icon per kind of change (on, off, rules, created, deleted, description), search highlighting, filters for what/where/who (people vs agents), "Load older" via `useInfiniteQuery`, and flag names that open the flag expanded in the environment that changed. Queries sit under the key prefix that flag mutations already invalidate, so the trail refreshes after any change.
 - **My test was wrong, not the code:** I expected a "rollout" search with action RULES_UPDATED to return one event, but "added rule: … 5% rollout" matches too. Fixed the expectation.
 - **Checked in the browser** (as viewer, since it's read-only): day groups, a server-side search with highlights ("(all matches)"), the agents filter showing only `key:agent-check` changes with key avatars, Load older 50 → 54 ("everything"), click-through to `dark-mode` on Development, and phone width with no overflow.
+
+## GitHub-style design principles
+
+- **Prompt:** borrow UI design principles from a "GitHub UI design system" skill page on mcpmarket.com.
+- **What the page actually gave:** only a short listing. Its concrete rules: a 4px spacing grid, Inter, ≥ 4.5:1 text contrast, ARIA labels on icon-only controls, animations only on transform/opacity, no `useEffect` for render logic, and a dark-first GitHub look. It offered two colours, one of which (accent `#030036`) wouldn't meet its own contrast rule on a dark surface. So the palette comes from **GitHub's real Primer tokens** instead; the README and CSS say which parts came from where.
+- **Applied:**
+  - semantic tokens for light and dark, with a header toggle (system → light → dark) stored per browser and applied before first render, so there's no flash;
+  - everything on `--space-*` (4px), 6px radius, borders over shadows (overlays only), Primer-style underline env tabs, counters, flash notes and blankslate empty states;
+  - Inter actually bundled (`@fontsource-variable/inter`, pinned) — the CSS named it but nothing loaded it before;
+  - only `transform` animates now (the switch and row-hover colour transitions are gone);
+  - the rule editor's server-sync `useEffect` replaced with React's "adjust state during render"; the dialog's effect stays because it syncs with the browser's `<dialog>` API.
+- **The contrast rule is enforced by a test:** `contrast.test.ts` reads the tokens straight from `styles.css` and checks 24 text pairs at 4.5:1 and 4 icon pairs at 3:1 in both themes. **It caught a real failure on its first run:** dark-mode blue text on the blue-tinted background was 4.23:1. Darkened the tint to `#0f2645` (4.90:1). Before that, the test first *silently loaded nothing*: Vitest stubs CSS, so `styles.css?raw` was empty and the suite errored with "no :root block" rather than passing. I enabled CSS for tests.
+- **Checked in the browser:** both themes; Inter loaded; an automated audit found no unlabelled controls and that `transform` was the only animated property; and, because the editor's sync logic changed, both sync paths re-run on a scratch flag (edit, toggle, save → saved with no false conflict; no edits + another admin's change → adopted). The scratch flag was deleted and the browser's theme reset to follow the system.
+- **One interruption:** the turn was cut off mid-verification and you said "try again". I resumed the remaining checks rather than redoing finished ones.

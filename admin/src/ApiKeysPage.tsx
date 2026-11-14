@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { KeyRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type CreatedKey, type Role } from "./api";
+import { Blankslate } from "./Blankslate";
 import { ago } from "./format";
 import { claudeCodeCommand, keyStatus, mcpJsonConfig, mcpUrl } from "./keys";
 import { keys, keysQuery } from "./queries";
@@ -118,7 +120,11 @@ export function ApiKeysPage() {
         <h2>Keys</h2>
         {list.isPending && <p className="muted">Loading…</p>}
         {list.isError && <p className="error">{list.error.message}</p>}
-        {list.data?.length === 0 && <p className="muted">No keys yet.</p>}
+        {list.data?.length === 0 && (
+          <Blankslate icon={KeyRound} title="No API keys yet">
+            Create one above to let an agent manage flags through MCP.
+          </Blankslate>
+        )}
         {list.data && list.data.length > 0 && (
           <table className="keys">
             <thead>
