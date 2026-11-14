@@ -19,6 +19,10 @@ public class AuditLog {
     }
 
     public List<AuditEvent> recent(Optional<String> flagKey, Optional<String> envKey, int limit) {
-        return repository.find(flagKey, envKey, limit);
+        return search(AuditQuery.forFlag(flagKey, envKey, limit));
+    }
+
+    public List<AuditEvent> search(AuditQuery query) {
+        return repository.find(query);
     }
 }

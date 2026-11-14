@@ -2,6 +2,7 @@ package dev.flags.backend.audit;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.flags.backend.SqlLike;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -35,16 +36,25 @@ class JdbcAuditRepository implements AuditRepository {
     }
 
     @Override
-    public List<AuditEvent> find(Optional<String> flagKey, Optional<String> envKey, int limit) {
+    public List<AuditEvent> find(AuditQuery q) {
         return jdbc.sql("""
                         SELECT id, at, actor, flag_key, env_key, action, summary FROM audit_event
                         WHERE (CAST(:flagKey AS text) IS NULL OR flag_key = :flagKey)
                           AND (CAST(:envKey AS text) IS NULL OR env_key = :envKey)
+                          AND (CAST(:action AS text) IS NULL OR action = :action)
+                          AND (CAST(:actorType AS text) IS NULL OR (CAST(:actorType AS text) = 'KEY') = (actor LIKE 'key:%'))
+                          AND (CAST(:before AS bigint) IS NULL OR id < :before)
+                          AND (CAST(:text AS text) IS NULL
+                               OR summary ILIKE :text ESCAPE '\\' OR flag_key ILIKE :text ESCAPE '\\' OR actor ILIKE :text ESCAPE '\\')
                         ORDER BY id DESC LIMIT :limit
                         """)
-                .param("flagKey", flagKey.orElse(null))
-                .param("envKey", envKey.orElse(null))
-                .param("limit", limit)
+                .param("flagKey", q.flagKey().orElse(null))
+                .param("envKey", q.envKey().orElse(null))
+                .param("action", q.action().map(Enum::name).orElse(null))
+                .param("actorType", q.actorType().map(Enum::name).orElse(null))
+                .param("before", q.before().orElse(null))
+                .param("text", q.text().map(SqlLike::contains).orElse(null))
+                .param("limit", q.limit())
                 .query((rs, row) -> new AuditEvent(
                         rs.getLong("id"),
                         rs.getTimestamp("at").toInstant(),

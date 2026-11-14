@@ -1,5 +1,6 @@
 package dev.flags.backend.contexts;
 
+import dev.flags.backend.SqlLike;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -49,7 +50,7 @@ class JdbcContextRepository implements ContextRepository {
                         LIMIT :limit
                         """)
                 .param("kind", kind.value())
-                .param("pattern", "%" + escapeLike(query) + "%")
+                .param("pattern", SqlLike.contains(query))
                 .param("limit", limit)
                 .query((rs, row) -> new SeenContext(rs.getString("value"), rs.getTimestamp("last_seen").toInstant()))
                 .list();
@@ -65,9 +66,5 @@ class JdbcContextRepository implements ContextRepository {
                 .param("values", values)
                 .query(String.class)
                 .list());
-    }
-
-    private static String escapeLike(String text) {
-        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }

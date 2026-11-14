@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
 import dev.flags.backend.access.PermissionsService;
 import dev.flags.backend.audit.AuditLog;
+import dev.flags.backend.audit.AuditQuery;
 import dev.flags.backend.auth.AppUser;
 import dev.flags.backend.auth.CurrentUser;
 import dev.flags.backend.contexts.ContextKind;
@@ -135,13 +136,19 @@ class AdminTools {
                         READ,
                         args -> FlagView.of(flags.get(args.string("key")))),
 
-                new Tool("get_audit_log", "Read the audit log",
-                        "Who changed what and when, newest first, in plain words (e.g. 'rollout 5% → 10%'). Filter by flag "
-                                + "and/or environment. Changes made with an API key show the actor as 'key:<name>'.",
+                new Tool("get_audit_log", "Search the audit log",
+                        "Who changed what and when across all flags, newest first, in plain words (e.g. 'rollout 5% → 10%'). "
+                                + "Filter by flag, environment, action, actor type, or text in the summary/flag/actor. Page back "
+                                + "by passing the smallest event id you have as 'before'. Changes made with an API key show the "
+                                + "actor as 'key:<name>'.",
                         """
                         {"type": "object", "properties": {
                           "flag": {"type": "string", "description": "Only this flag"},
                           "environment": {"type": "string", "description": "Only this environment"},
+                          "query": {"type": "string", "maxLength": 200, "description": "Text to find in the summary, flag key or actor"},
+                          "action": {"type": "string", "enum": ["FLAG_CREATED", "FLAG_UPDATED", "FLAG_DELETED", "FLAG_TOGGLED", "RULES_UPDATED"]},
+                          "actor": {"type": "string", "enum": ["person", "key"], "description": "Changes by people, or by API keys (agents)"},
+                          "before": {"type": "integer", "minimum": 1, "description": "Only events older than this event id (paging)"},
                           "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
                         }, "additionalProperties": false}""",
                         READ,
@@ -150,7 +157,18 @@ class AdminTools {
                             if (limit < 1 || limit > 200) {
                                 throw new ToolInputException("'limit' must be between 1 and 200.");
                             }
-                            return Map.of("events", auditLog.recent(args.optionalString("flag"), args.optionalString("environment"), limit));
+                            String query = args.optionalString("query").orElse("");
+                            if (query.length() > 200) {
+                                throw new ToolInputException("'query' may be at most 200 characters.");
+                            }
+                            return Map.of("events", auditLog.search(new AuditQuery(
+                                    args.optionalString("flag"),
+                                    args.optionalString("environment"),
+                                    args.optionalString("query").map(String::strip),
+                                    args.optionalString("action").map(AuditQuery::parseAction),
+                                    args.optionalString("actor").map(AuditQuery.ActorType::parse),
+                                    args.optionalInteger("before").map(Integer::longValue),
+                                    limit)));
                         }),
 
                 new Tool("suggest_ids", "Suggest user or customer IDs",

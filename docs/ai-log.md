@@ -212,3 +212,11 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
   - every switch rendered a hidden `<dialog>` (10 on one page); they now render only while asking;
   - on a phone, the header pushed the logout button off-screen. It's compact below 640 px; no horizontal overflow at 375 px.
 - **Checked per role:** admin (everything, prod confirm cancel and confirm, delete via danger zone; scratch flags only), editor (note "As editor, you can change dev; prod is read-only", prod switches locked, prod details read-only, no delete), viewer (read-only everywhere).
+
+## Activity tab: the whole audit trail, searchable
+
+- **Prompt:** an Activity tab to see and search the audit trail and history of all flag changes.
+- **Design choice:** searching *all* history can't be done in the browser on the latest 200 events, so search, filters and paging moved to the server. `GET /api/audit` gained `q`, `action`, `actor` and a `before` cursor (id-based, so new events can't shift pages), behind one `AuditQuery` record used by both REST and the MCP `get_audit_log` tool (CLAUDE.md: a dashboard capability gets a tool). The LIKE escaping from the ID suggestions moved into a shared `SqlLike` helper, and a test checks `5%` matches literally.
+- **The page:** grouped by day (Today / Yesterday / date), an icon per kind of change (on, off, rules, created, deleted, description), search highlighting, filters for what/where/who (people vs agents), "Load older" via `useInfiniteQuery`, and flag names that open the flag expanded in the environment that changed. Queries sit under the key prefix that flag mutations already invalidate, so the trail refreshes after any change.
+- **My test was wrong, not the code:** I expected a "rollout" search with action RULES_UPDATED to return one event, but "added rule: … 5% rollout" matches too. Fixed the expectation.
+- **Checked in the browser** (as viewer, since it's read-only): day groups, a server-side search with highlights ("(all matches)"), the agents filter showing only `key:agent-check` changes with key avatars, Load older 50 → 54 ("everything"), click-through to `dark-mode` on Development, and phone width with no overflow.

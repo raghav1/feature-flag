@@ -177,3 +177,8 @@ These are also recorded in the README under Assumptions.
 - `api_key` table: name, role, display prefix, SHA-256 of the token, created_by, expires_at, last_used_at, revoked_at/by. Admin-only management at `/api/keys`.
 - Decisions (asked, not assumed): MCP lives inside the backend; a key is a fixed role (not fine-grained scopes); only admins create keys.
 - `/api/contexts` (seen user/customer IDs) feeds both the editor's suggestions and the `suggest_ids`/`find_unseen_ids` tools.
+
+## Added after the plan: Activity
+
+- `GET /api/audit` gains `q` (text in summary, flag key or actor; LIKE wildcards escaped), `action`, `actor` (person / key) and a `before` cursor for paging. Existing callers are unchanged. The MCP `get_audit_log` tool takes the same filters.
+- Admin **Activity** tab: the whole trail, grouped by day, searchable and filterable, with "Load older" and links to each flag.

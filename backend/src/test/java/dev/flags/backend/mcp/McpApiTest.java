@@ -303,6 +303,15 @@ class McpApiTest {
                 "added rule: users u_102; added rule: 5% rollout",
                 "created flag");
 
+        List<String> searched = new ArrayList<>();
+        ok(call(agent, "get_audit_log", Map.of("flag", flag, "query", "rollout", "action", "RULES_UPDATED")))
+                .path("events").forEach(e -> searched.add(e.path("summary").asText()));
+        assertThat(searched).containsExactly("rollout 5% → 25%", "added rule: users u_102; added rule: 5% rollout");
+        JsonNode byKeys = ok(call(agent, "get_audit_log", Map.of("flag", flag, "actor", "key", "limit", 2)));
+        assertThat(byKeys.path("events").size()).isEqualTo(2);
+        long oldest = byKeys.path("events").path(1).path("id").asLong();
+        assertThat(ok(call(agent, "get_audit_log", Map.of("flag", flag, "before", (int) oldest))).path("events").size()).isEqualTo(3);
+
         assertThat(error(call(agent, "delete_flag", Map.of("key", flag, "confirm_key", "something-else")))).contains("confirm_key");
         ok(call(agent, "delete_flag", Map.of("key", flag, "confirm_key", flag)));
         assertThat(error(call(agent, "get_flag", Map.of("key", flag)))).isEqualTo("No flag '" + flag + "'.");

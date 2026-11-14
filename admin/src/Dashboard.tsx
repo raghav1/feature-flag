@@ -1,14 +1,23 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Flag, KeyRound, LogOut } from "lucide-react";
+import { Flag, History, KeyRound, LogOut } from "lucide-react";
 import { useState } from "react";
 import { api, type Me } from "./api";
+import { ActivityPage } from "./ActivityPage";
 import { ApiKeysPage } from "./ApiKeysPage";
 import { FlagsPage } from "./FlagsPage";
 import { switchSession } from "./queries";
 
 export function Dashboard({ me }: { me: Me }) {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState<"flags" | "keys">("flags");
+  const [page, setPage] = useState<"flags" | "activity" | "keys">("flags");
+
+  /** From the activity trail to the flag itself, expanded in the environment that changed. */
+  function openFlag(flagKey: string, env: string | null) {
+    const params = new URLSearchParams({ flag: flagKey });
+    if (env) params.set("env", env);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+    setPage("flags");
+  }
   const logout = useMutation({ mutationFn: api.logout, onSettled: () => switchSession(queryClient, null) });
 
   return (
@@ -23,6 +32,9 @@ export function Dashboard({ me }: { me: Me }) {
         <nav className="nav" aria-label="Sections">
           <button type="button" className={page === "flags" ? "nav-item active" : "nav-item"} onClick={() => setPage("flags")}>
             <Flag size={15} aria-hidden="true" /> Flags
+          </button>
+          <button type="button" className={page === "activity" ? "nav-item active" : "nav-item"} onClick={() => setPage("activity")}>
+            <History size={15} aria-hidden="true" /> Activity
           </button>
           {me.can.manageApiKeys && (
             <button type="button" className={page === "keys" ? "nav-item active" : "nav-item"} onClick={() => setPage("keys")}>
@@ -48,6 +60,10 @@ export function Dashboard({ me }: { me: Me }) {
       {page === "keys" && me.can.manageApiKeys ? (
         <main className="flags-page">
           <ApiKeysPage />
+        </main>
+      ) : page === "activity" ? (
+        <main className="flags-page">
+          <ActivityPage onOpenFlag={openFlag} />
         </main>
       ) : (
         <FlagsPage me={me} />

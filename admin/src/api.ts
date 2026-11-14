@@ -80,6 +80,19 @@ export interface SeenId {
   lastSeen: string;
 }
 
+export type AuditAction = "FLAG_CREATED" | "FLAG_UPDATED" | "FLAG_DELETED" | "FLAG_TOGGLED" | "RULES_UPDATED";
+
+/** Filters for the audit trail; all optional. `before` pages back from an event id. */
+export interface AuditSearch {
+  q?: string;
+  action?: AuditAction;
+  actor?: "person" | "key";
+  env?: string;
+  flag?: string;
+  before?: number;
+  limit?: number;
+}
+
 export interface FieldError {
   field: string;
   message: string;
@@ -164,6 +177,13 @@ export const api = {
   createKey: (name: string, role: Role, expiresInDays: number) =>
     request<CreatedKey>("POST", "/api/keys", { name, role, expiresInDays }),
   revokeKey: (id: number) => request<void>("DELETE", `/api/keys/${id}`),
+  searchAudit: (search: AuditSearch) => {
+    const params = new URLSearchParams();
+    for (const [name, value] of Object.entries(search)) {
+      if (value !== undefined && value !== "") params.set(name, String(value));
+    }
+    return request<AuditEvent[]>("GET", `/api/audit?${params.toString()}`);
+  },
   recentActivity: (limit = 200) => request<AuditEvent[]>("GET", `/api/audit?limit=${limit}`),
   audit: (flagKey: string) =>
     request<AuditEvent[]>("GET", `/api/audit?${new URLSearchParams({ flag: flagKey, limit: "20" }).toString()}`),
