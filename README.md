@@ -247,7 +247,7 @@ It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise 
 | `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
 | `admin`, `demo` | 104 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the shared `design/tokens.css`), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
 
-No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md).
+No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md). The manual test plan for the admin, the storefront and MCP is in [docs/qa-test-plan.md](docs/qa-test-plan.md).
 
 ## Assumptions
 
@@ -289,6 +289,7 @@ Built with Claude Code, directed phase by phase, with a review and course correc
 
 - [CLAUDE.md](CLAUDE.md): the conventions and design principles the agent works to, and when it must stop and ask.
 - [docs/plan.md](docs/plan.md): the design, agreed before any code.
+- [docs/qa-test-plan.md](docs/qa-test-plan.md): the manual QA plan (admin, storefront, MCP, end-to-end).
 - [docs/ai-log.md](docs/ai-log.md): the prompts for each phase, where the AI fell short and how it was corrected (a hard-coded attribute that broke open/closed, a recurring null bug fixed at the source, an order-dependent test investigated rather than replaced), and the bugs that only browser testing found.
 
 ## Project layout
