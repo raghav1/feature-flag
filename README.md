@@ -22,6 +22,8 @@ If a port is already taken, override it: `ADMIN_PORT`, `DEMO_PORT`, `BACKEND_POR
 
 ### Logins (fictional dev seed data)
 
+> **Local demo only.** These logins, the SDK keys (`dev-sdk-key` / `prod-sdk-key`) and the Postgres password (`flags`) are made-up defaults so the stack runs with one command on your machine. They are not secrets and protect nothing real. For any shared or real deployment, set `SDK_KEY_DEV`, `SDK_KEY_PROD` and the database credentials through the environment, and replace the seeded users.
+
 | User | Password | Can |
 |---|---|---|
 | `admin` | `admin-pass` | everything |
