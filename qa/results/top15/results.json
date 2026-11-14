@@ -1,0 +1,355 @@
+{
+  "finishedAt": "2026-11-14T23:14:38.026Z",
+  "results": [
+    {
+      "card": true,
+      "n": 1,
+      "id": "INTRO",
+      "area": "Card",
+      "title": "INTRO",
+      "expected": "",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 23032,
+      "screenshots": [],
+      "videos": [
+        "01-INTRO-0.webm"
+      ]
+    },
+    {
+      "card": true,
+      "n": 2,
+      "id": "SECTION-ADMIN",
+      "area": "Card",
+      "title": "SECTION-ADMIN",
+      "expected": "",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 9280,
+      "screenshots": [],
+      "videos": [
+        "02-SECTION-ADMIN-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 3,
+      "id": "ADM-ROLE-01",
+      "area": "Admin",
+      "title": "Viewer has read-only access",
+      "expected": "Every switch disabled; no New flag, rule editing, edit, delete or API keys; notes say why",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "6/6 switches disabled; read-only notes shown; no Add rule, Save, Edit description, Delete or API keys."
+      ],
+      "durationMs": 8880,
+      "screenshots": [],
+      "videos": [
+        "03-ADM-ROLE-01-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 4,
+      "id": "ADM-LIST-02",
+      "area": "Admin",
+      "title": "Flag list explains the effective production audience",
+      "expected": "Each row: Live/Partial/Off in prod + who gets it, in plain English",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "new-dashboard: Partial, 'On for users u_102 and u_207, customer acme and 10% of users'; beta-reports: Partial, 'On for customer acme'; dark-mode: Off, 'Off for everyone'."
+      ],
+      "durationMs": 9615,
+      "screenshots": [],
+      "videos": [
+        "04-ADM-LIST-02-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 5,
+      "id": "ADM-TOG-02",
+      "area": "Admin",
+      "title": "Production toggle requires confirmation and explains impact",
+      "expected": "A dialog says who is affected before anything changes; Cancel changes nothing",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Dialog text before any change: 'Real users start getting it right away: 25% of users.'; server still OFF while asking; Cancel kept it OFF; Confirm turned it ON; the off-dialog warned 'Everyone in prod loses this feature right away.'"
+      ],
+      "durationMs": 12178,
+      "screenshots": [],
+      "videos": [
+        "05-ADM-TOG-02-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 6,
+      "id": "ADM-RULE-04",
+      "area": "Admin",
+      "title": "Rules can be edited, validated and saved",
+      "expected": "A malformed ID is blocked with a message; a valid ID saves; the server has it",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "'Fix \"bad#id\" first…' shown and Save disabled; after Discard and Save, server rule 1 = u_102, u_207, u_501."
+      ],
+      "durationMs": 9950,
+      "screenshots": [],
+      "videos": [
+        "06-ADM-RULE-04-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 7,
+      "id": "ADM-ACT-02",
+      "area": "Admin",
+      "title": "Activity search finds changes across all flag history",
+      "expected": "Searching \"rollout\" lists every matching change, highlighted, (all matches)",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "2 results, all containing \"rollout\" (e.g. \"rollout 10% → 20%\"), footer \"(all matches)\"."
+      ],
+      "durationMs": 7620,
+      "screenshots": [],
+      "videos": [
+        "07-ADM-ACT-02-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 8,
+      "id": "ADM-KEY-01",
+      "area": "Admin",
+      "title": "A new MCP API-key token is shown only once",
+      "expected": "Token and client config shown once (blurred here); gone after reload",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Token panel 'Copy this key now. It won't be shown again.' after create; after reload the key is listed and the token appears nowhere in the page."
+      ],
+      "durationMs": 10072,
+      "screenshots": [],
+      "videos": [
+        "08-ADM-KEY-01-0.webm"
+      ]
+    },
+    {
+      "card": true,
+      "n": 9,
+      "id": "SECTION-DEMO",
+      "area": "Card",
+      "title": "SECTION-DEMO",
+      "expected": "",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 6614,
+      "screenshots": [],
+      "videos": [
+        "09-SECTION-DEMO-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 10,
+      "id": "DEMO-ANA",
+      "area": "Storefront",
+      "title": "Ana demonstrates direct user targeting",
+      "expected": "new-dashboard ON via rule 1 (user ID list); beta-reports OFF",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Storefront: 'Welcome back, Ana' (new dashboard), no beta report. Debug: new-dashboard ON 'matched rule 1 (user ID list)'; beta-reports OFF 'no rule matched → Otherwise OFF'."
+      ],
+      "durationMs": 6593,
+      "screenshots": [],
+      "videos": [
+        "10-DEMO-ANA-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 11,
+      "id": "DEMO-CY",
+      "area": "Storefront",
+      "title": "Cy demonstrates customer targeting",
+      "expected": "new-dashboard ON via rule 2 (customer list); beta-reports ON for acme",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Debug: new-dashboard ON 'matched rule 2 (customer list)'; beta-reports ON 'matched rule 1 (customer list)'; storefront shows 'Spending by category for acme'."
+      ],
+      "durationMs": 6329,
+      "screenshots": [],
+      "videos": [
+        "11-DEMO-CY-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 12,
+      "id": "DEMO-DEE",
+      "area": "Storefront",
+      "title": "Dee demonstrates deterministic percentage rollout",
+      "expected": "ON via rule 3 (% rollout), the same on every load and every call",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "ON 'matched rule 3 (% rollout)' on first load and after 2 reloads; 50/50 API evaluations ON via rule index 2. murmur3('new-dashboard:u_303') mod 10000 = 628, inside the first 10% (< 1000)."
+      ],
+      "durationMs": 11262,
+      "screenshots": [],
+      "videos": [
+        "12-DEMO-DEE-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 13,
+      "id": "DEMO-ELI",
+      "area": "Storefront",
+      "title": "Eli demonstrates the Otherwise OFF path",
+      "expected": "No rule matches: classic home; every flag OFF with \"Otherwise OFF\"",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Classic home 'Welcome to Corner Shop'; new-dashboard and beta-reports OFF 'no rule matched → Otherwise OFF'; dark-mode OFF 'flag is OFF in prod'."
+      ],
+      "durationMs": 6280,
+      "screenshots": [],
+      "videos": [
+        "13-DEMO-ELI-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 14,
+      "id": "DEMO-ELI-DEV",
+      "area": "Storefront",
+      "title": "Switching Eli to dev shows environment differences and dark mode",
+      "expected": "In dev every flag is ON (Otherwise ON) and the dark-mode flag turns the store dark",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "prod: light, classic home, all OFF. dev: data-theme=dark, new dashboard + beta report, all three flags ON 'no rule matched → Otherwise ON'."
+      ],
+      "durationMs": 7988,
+      "screenshots": [],
+      "videos": [
+        "14-DEMO-ELI-DEV-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 15,
+      "id": "DEMO-LIVE-01",
+      "area": "Storefront",
+      "title": "Admin changes reach the storefront live without refreshing",
+      "expected": "Add Eli (u_412) to rule 1 in the admin: the storefront switches within seconds, no reload",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Eli changed from classic home to 'Welcome back, Eli' 0.2 s after Save (live stream, no reload); debug 'matched rule 1 (user ID list)'."
+      ],
+      "durationMs": 8295,
+      "screenshots": [],
+      "videos": [
+        "15-DEMO-LIVE-01-0.webm"
+      ]
+    },
+    {
+      "card": true,
+      "n": 16,
+      "id": "SECTION-MCP",
+      "area": "Card",
+      "title": "SECTION-MCP",
+      "expected": "",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 6745,
+      "screenshots": [],
+      "videos": [
+        "16-SECTION-MCP-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 17,
+      "id": "MCP-ROLE-03",
+      "area": "MCP and end-to-end",
+      "title": "An editor MCP key cannot change production",
+      "expected": "set_flag_enabled on prod returns isError \"… may not change prod.\"; prod unchanged",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "whoami role EDITOR, changeEnvironments [dev]; set_flag_enabled prod → isError: \"key:qa-editor-agent (editor) may not change prod.\"; prod enabled still false."
+      ],
+      "durationMs": 10146,
+      "screenshots": [],
+      "videos": [
+        "17-MCP-ROLE-03-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 18,
+      "id": "MCP-CHG-04",
+      "area": "MCP and end-to-end",
+      "title": "A stale version causes a conflict rather than overwriting",
+      "expected": "The second write with the old version is refused; the first write stands",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "First write (version 0) accepted; second write with version 0: isError \"'beta-reports' in dev changed since you loaded version 0 (now version 1). Reload and try again.\"; dev enabled stays false."
+      ],
+      "durationMs": 9612,
+      "screenshots": [],
+      "videos": [
+        "18-MCP-CHG-04-0.webm"
+      ]
+    },
+    {
+      "card": false,
+      "n": 19,
+      "id": "E2E-AGENT-ROLLOUT",
+      "area": "MCP and end-to-end",
+      "title": "An admin MCP agent changes a prod rollout; audit shows key:<name>; storefront updates",
+      "expected": "set_flag_rules 10% → 40% succeeds; audit \"rollout 10% → 40%\" by key:qa-admin-agent; Eli flips live",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "set_flag_rules ok; Eli's storefront switched in 0.3 s with 'matched rule 3 (% rollout)'; get_audit_log latest = {summary: \"rollout 10% → 40%\", actor: \"key:qa-admin-agent\"}; same entry in Activity → Agents."
+      ],
+      "durationMs": 14018,
+      "screenshots": [],
+      "videos": [
+        "19-E2E-AGENT-ROLLOUT-0.webm"
+      ]
+    },
+    {
+      "card": true,
+      "n": 20,
+      "id": "SUMMARY",
+      "area": "Card",
+      "title": "SUMMARY",
+      "expected": "",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 33134,
+      "screenshots": [],
+      "videos": [
+        "20-SUMMARY-0.webm"
+      ]
+    }
+  ]
+}

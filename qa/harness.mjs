@@ -30,7 +30,7 @@ const HEIGHT = 800;
 
 /** Runs in every page: a fixed caption at the bottom saying which test is running and what it's doing. */
 function captionScript(meta) {
-  if (window.top !== window) return;
+  if (window.top !== window || meta.card) return;
   const render = () => {
     let bar = document.getElementById("__qa_caption");
     if (!bar) {
@@ -50,6 +50,20 @@ function captionScript(meta) {
     } catch {}
     const status = state.status || "RUNNING";
     const colour = status === "PASS" ? "#238636" : status === "FAIL" ? "#da3633" : "#1f6feb";
+    if (meta.big) {
+      // Same on-screen size whether or not the page is zoomed for the recording.
+      const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      bar.style.font = `${20 / zoom}px/1.45 -apple-system,'Segoe UI',Inter,sans-serif`;
+      bar.style.padding = "10px 16px";
+      bar.style.alignItems = "flex-start";
+      bar.innerHTML =
+        `<div style="flex:1;min-width:0">` +
+        `<div><b>Case ${meta.n}/${meta.total}: ${meta.title}</b></div>` +
+        `<div style="opacity:.85"><b style="color:#9198a1">Action</b>&nbsp; ${state.step || "…"}</div>` +
+        `<div style="opacity:.85"><b style="color:#9198a1">Expected</b>&nbsp; ${meta.expected}</div></div>` +
+        `<span style="align-self:center;background:${colour};color:#fff;font-weight:700;font-size:18px;padding:4px 14px;border-radius:999px">${status}</span>`;
+      return;
+    }
     bar.innerHTML =
       `<span style="font-weight:700;white-space:nowrap">#${meta.n} ${meta.id}</span>` +
       `<span style="opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta.title}</span>` +
@@ -177,16 +191,24 @@ export const mask = (s) => String(s).replace(/ffk_[A-Za-z0-9_-]+/g, "ffk_••�
 // ---------------------------------------------------------------- runner
 
 export class Runner {
-  constructor(cases) {
+  /**
+   * options: out (folder for raw clips and screenshots), width/height (video size), scale (device pixel ratio:
+   * the page lays out at width/scale CSS pixels and is recorded sharp at full size), big (large captions with the
+   * expected result), slowMo, verdictMs (how long the verdict stays on screen).
+   */
+  constructor(cases, options = {}) {
     this.cases = cases;
     this.results = [];
+    this.opts = { width: WIDTH, height: HEIGHT, scale: 1, big: false, slowMo: Number(process.env.QA_SLOWMO ?? 120), verdictMs: 1200, ...options };
+    this.raw = options.out ? join(options.out, "raw") : RAW;
+    this.shots = options.out ? join(options.out, "screenshots") : SHOTS;
   }
 
   async run(only) {
-    rmSync(RAW, { recursive: true, force: true });
-    mkdirSync(RAW, { recursive: true });
-    mkdirSync(SHOTS, { recursive: true });
-    this.browser = await chromium.launch({ slowMo: Number(process.env.QA_SLOWMO ?? 120) });
+    rmSync(this.raw, { recursive: true, force: true });
+    mkdirSync(this.raw, { recursive: true });
+    mkdirSync(this.shots, { recursive: true });
+    this.browser = await chromium.launch({ slowMo: this.opts.slowMo });
     for (const c of this.cases) {
       if (only && !only.includes(c.id)) continue;
       await this.runCase(c);
@@ -200,25 +222,54 @@ export class Runner {
     const contexts = [];
     const shots = [];
     const notes = [];
-    const meta = { n: c.n, id: c.id, title: c.title.replace(/</g, "&lt;") };
+    const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const meta = { n: c.caseNo ?? c.n, id: c.id, title: esc(c.title), expected: esc(c.expected), big: this.opts.big, card: !!c.card, total: this.cases.filter((x) => !x.card).length };
     const t = {
+      results: this.results,
       notes,
       note: (s) => notes.push(s),
       /** A recorded browser context with the caption bar. */
       context: async (opts = {}) => {
-        const width = opts.width ?? WIDTH;
-        const height = opts.height ?? HEIGHT;
+        const width = opts.width ?? this.opts.width;
+        const height = opts.height ?? this.opts.height;
+        const scale = opts.scale ?? this.opts.scale;
         const ctx = await this.browser.newContext({
-          viewport: { width, height },
-          recordVideo: { dir: join(RAW, `${c.id}-${contexts.length}`), size: { width, height } },
+          viewport: { width: Math.round(width / scale), height: Math.round(height / scale) },
+          deviceScaleFactor: scale,
+          recordVideo: { dir: join(this.raw, `${c.id}-${contexts.length}`), size: { width, height } },
           ...(opts.options ?? {}),
         });
         ctx.setDefaultTimeout(15_000);
+        if (this.opts.zoom && this.opts.zoom !== 1) {
+          // Enlarge the app's pages for a readable recording (runtime CSS only). The runner's own pages
+          // (/__qa_*, set content) are designed at full size and skip it.
+          await ctx.addInitScript((z) => {
+            if (location.protocol === "about:" || location.pathname.startsWith("/__qa_")) return;
+            const add = () => {
+              const st = document.createElement("style");
+              st.textContent = `html { zoom: ${z}; }`;
+              (document.head || document.documentElement).appendChild(st);
+            };
+            if (document.documentElement) add();
+            else document.addEventListener("DOMContentLoaded", add);
+          }, this.opts.zoom);
+        }
         await ctx.addInitScript(captionScript, meta);
         contexts.push(ctx);
         return ctx;
       },
       page: async (opts) => (await t.context(opts)).newPage(),
+      /** Pause so a viewer can read what's on screen. */
+      hold: (ms = 1500) => new Promise((r) => setTimeout(r, ms)),
+      /** Outline an element on the recording (runtime styling only; the product is untouched). */
+      spot: async (locator) => {
+        await locator.first().scrollIntoViewIfNeeded().catch(() => {});
+        await locator.first().evaluate((el) => {
+          el.style.outline = "3px solid #bf3989";
+          el.style.outlineOffset = "3px";
+          el.style.borderRadius = el.style.borderRadius || "4px";
+        });
+      },
       step: async (text) => {
         t.currentStep = text;
         for (const ctx of contexts) {
@@ -237,7 +288,7 @@ export class Runner {
       shot: async (page, name, opts = {}) => {
         const file = `${String(c.n).padStart(2, "0")}-${c.id}-${name}.png`;
         // Evidence pages (set with setContent) are captured whole; app pages as the viewer sees them.
-        await page.screenshot({ path: join(SHOTS, file), fullPage: page.url() === "about:blank", ...opts });
+        await page.screenshot({ path: join(this.shots, file), fullPage: page.url() === "about:blank", ...opts });
         shots.push(file);
       },
       /** Show request/response evidence (API, MCP) as a page, so it's on the video and in a screenshot. */
@@ -291,7 +342,7 @@ export class Runner {
           .catch(() => {});
       }
     }
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, this.opts.verdictMs));
     const videos = [];
     for (const [i, ctx] of contexts.entries()) {
       const pages = ctx.pages();
@@ -299,7 +350,7 @@ export class Runner {
       for (const [j, p] of pages.entries()) {
         const v = p.video();
         if (!v) continue;
-        const target = join(RAW, `${String(c.n).padStart(2, "0")}-${c.id}-${i}${j ? `-${j}` : ""}.webm`);
+        const target = join(this.raw, `${String(c.n).padStart(2, "0")}-${c.id}-${i}${j ? `-${j}` : ""}.webm`);
         const src = await v.path();
         if (existsSync(src)) {
           renameSync(src, target);
@@ -311,7 +362,7 @@ export class Runner {
     const durationMs = Date.now() - started;
     console.log(`${status} (${(durationMs / 1000).toFixed(1)} s)${error ? `\n    ${error.split("\n")[0]}` : ""}`);
     // File names only: absolute paths would leak the local home directory into the committed results.
-    this.results.push({ n: c.n, id: c.id, area: c.area, title: c.title, expected: c.expected, status, error, notes, durationMs, screenshots: shots,
+    this.results.push({ card: !!c.card, n: c.n, id: c.id, area: c.area, title: c.title, expected: c.expected, status, error, notes, durationMs, screenshots: shots,
       videos: videos.map((v) => v.split("/").at(-1)) });
   }
 }
