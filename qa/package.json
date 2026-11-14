@@ -1,0 +1,12 @@
+{
+  "name": "feature-flags-qa",
+  "private": true,
+  "type": "module",
+  "description": "Executes the top 25 QA cases (docs/qa-top-25.md) in a real browser, with video and screenshots.",
+  "scripts": {
+    "qa": "node run.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0"
+  }
+}

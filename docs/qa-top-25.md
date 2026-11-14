@@ -2,6 +2,8 @@
 
 The 25 most important cases from the full [QA test plan](qa-test-plan.md), all P0. They were picked to cover what the service promises: roles enforced on the server, safe prod changes, no lost updates, deterministic rollouts, a storefront that never flickers and survives outages, and agents held to the same rules as people.
 
+**Latest execution: 25 of 25 passed.** Report, screenshots and video in [qa/results/REPORT.md](../qa/results/REPORT.md); the runner is [qa/run.mjs](../qa/run.mjs).
+
 Start from seed data (`docker compose down -v`, then `docker compose up --build`). Logins are in the README. Expected per-user results are in the plan, §2.
 
 | Area | Cases |

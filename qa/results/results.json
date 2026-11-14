@@ -1,0 +1,477 @@
+{
+  "finishedAt": "2026-11-14T21:34:19.017Z",
+  "results": [
+    {
+      "n": 1,
+      "id": "ADM-ROLE-01",
+      "area": "Admin",
+      "title": "Viewer is read-only everywhere",
+      "expected": "No New flag, edit, delete, API keys; switches disabled; read-only notes say why",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 2853,
+      "screenshots": [
+        "01-ADM-ROLE-01-list.png",
+        "01-ADM-ROLE-01-expanded.png"
+      ],
+      "videos": [
+        "01-ADM-ROLE-01-0.webm"
+      ]
+    },
+    {
+      "n": 2,
+      "id": "ADM-LIST-02",
+      "area": "Admin",
+      "title": "Flags list says who gets each flag in plain English",
+      "expected": "Partial/Partial/Off in prod with the seed audience sentences",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 2034,
+      "screenshots": [
+        "02-ADM-LIST-02-list.png"
+      ],
+      "videos": [
+        "02-ADM-LIST-02-0.webm"
+      ]
+    },
+    {
+      "n": 3,
+      "id": "ADM-TOG-02",
+      "area": "Admin",
+      "title": "A prod switch asks first and says who is affected",
+      "expected": "Dialog before any change; Cancel changes nothing; Confirm turns it on",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 3213,
+      "screenshots": [
+        "03-ADM-TOG-02-dialog.png",
+        "03-ADM-TOG-02-on.png"
+      ],
+      "videos": [
+        "03-ADM-TOG-02-0.webm"
+      ]
+    },
+    {
+      "n": 4,
+      "id": "ADM-RULE-03",
+      "area": "Admin",
+      "title": "A typed ID is saved even without pressing Enter",
+      "expected": "u_501 saved into prod rule 1",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Server rule 1 after save: u_102, u_207, u_501"
+      ],
+      "durationMs": 2460,
+      "screenshots": [
+        "04-ADM-RULE-03-saved.png"
+      ],
+      "videos": [
+        "04-ADM-RULE-03-0.webm"
+      ]
+    },
+    {
+      "n": 5,
+      "id": "ADM-RULE-04",
+      "area": "Admin",
+      "title": "A malformed ID is blocked with a clear message",
+      "expected": "bad#id stays in the box, message names it, Save disabled",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 2652,
+      "screenshots": [
+        "05-ADM-RULE-04-blocked.png"
+      ],
+      "videos": [
+        "05-ADM-RULE-04-0.webm"
+      ]
+    },
+    {
+      "n": 6,
+      "id": "ADM-RULE-14",
+      "area": "Admin",
+      "title": "Two admins edit the same rules: no silent overwrite",
+      "expected": "B is told someone else changed them; A's change stands",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Server kept A's rules: customers acme, globex"
+      ],
+      "durationMs": 3997,
+      "screenshots": [
+        "06-ADM-RULE-14-conflict.png"
+      ],
+      "videos": [
+        "06-ADM-RULE-14-0.webm",
+        "06-ADM-RULE-14-1.webm"
+      ]
+    },
+    {
+      "n": 7,
+      "id": "ADM-ACT-02",
+      "area": "Admin",
+      "title": "Activity search finds changes across all history",
+      "expected": "\"rollout\" finds \"rollout 10% → 20%\", highlighted, (all matches)",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "2 matching changes, all containing \"rollout\""
+      ],
+      "durationMs": 2469,
+      "screenshots": [
+        "07-ADM-ACT-02-search.png"
+      ],
+      "videos": [
+        "07-ADM-ACT-02-0.webm"
+      ]
+    },
+    {
+      "n": 8,
+      "id": "ADM-KEY-01",
+      "area": "Admin",
+      "title": "A new API key's token is shown once only",
+      "expected": "Token + client config shown once; gone after reload",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Token blurred in the recording and screenshots."
+      ],
+      "durationMs": 3004,
+      "screenshots": [
+        "08-ADM-KEY-01-shown-once.png",
+        "08-ADM-KEY-01-after-reload.png"
+      ],
+      "videos": [
+        "08-ADM-KEY-01-0.webm"
+      ]
+    },
+    {
+      "n": 9,
+      "id": "DEMO-LOAD-01",
+      "area": "Storefront",
+      "title": "No flicker on first load, even on slow 3G",
+      "expected": "First paint is already the new dashboard; classic home never appears",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Loaded in 10.8 s throttled; storefront blocks seen in order: new-dashboard, beta-reports"
+      ],
+      "durationMs": 12328,
+      "screenshots": [
+        "09-DEMO-LOAD-01-first-paint.png"
+      ],
+      "videos": [
+        "09-DEMO-LOAD-01-0.webm"
+      ]
+    },
+    {
+      "n": 10,
+      "id": "DEMO-USER-01",
+      "area": "Storefront",
+      "title": "Each demo user gets exactly the expected flags",
+      "expected": "All six users match the prod oracle (storefront + debug reasons)",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 2684,
+      "screenshots": [
+        "10-DEMO-USER-01-ana.png",
+        "10-DEMO-USER-01-ben.png",
+        "10-DEMO-USER-01-cy.png",
+        "10-DEMO-USER-01-dee.png",
+        "10-DEMO-USER-01-eli.png",
+        "10-DEMO-USER-01-anonymous.png"
+      ],
+      "videos": [
+        "10-DEMO-USER-01-0.webm"
+      ]
+    },
+    {
+      "n": 11,
+      "id": "DEMO-ENV-02",
+      "area": "Storefront",
+      "title": "Dev turns the store dark via the dark-mode flag",
+      "expected": "All flags ON (Otherwise ON); data-theme=dark; admin's dark palette",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Dark background rgb(21, 27, 35) = shared token --canvas-subtle #151b23"
+      ],
+      "durationMs": 1848,
+      "screenshots": [
+        "11-DEMO-ENV-02-dev-dark.png"
+      ],
+      "videos": [
+        "11-DEMO-ENV-02-0.webm"
+      ]
+    },
+    {
+      "n": 12,
+      "id": "DEMO-DBG-04",
+      "area": "Storefront",
+      "title": "The evaluate API returns results only, never rules",
+      "expected": "Only value/reason/ruleIndex/ruleType; no IDs, lists or percentages",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 1514,
+      "screenshots": [
+        "12-DEMO-DBG-04-storefront.png",
+        "12-DEMO-DBG-04-response.png"
+      ],
+      "videos": [
+        "12-DEMO-DBG-04-0.webm"
+      ]
+    },
+    {
+      "n": 13,
+      "id": "DEMO-LIVE-01",
+      "area": "Storefront",
+      "title": "An admin change reaches the storefront without a reload",
+      "expected": "Eli gets the new dashboard within seconds of the save",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Storefront updated 0.3 s after Save, with no reload"
+      ],
+      "durationMs": 3407,
+      "screenshots": [
+        "13-DEMO-LIVE-01-before-save.png",
+        "13-DEMO-LIVE-01-after-save.png"
+      ],
+      "videos": [
+        "13-DEMO-LIVE-01-0.webm"
+      ]
+    },
+    {
+      "n": 14,
+      "id": "DEMO-OUT-01",
+      "area": "Storefront",
+      "title": "Backend down: the store keeps its last known flags",
+      "expected": "Stale banner; storefront unchanged",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Stale banner appeared 29 s after the backend stopped, without user action"
+      ],
+      "durationMs": 31940,
+      "screenshots": [
+        "14-DEMO-OUT-01-stale.png"
+      ],
+      "videos": [
+        "14-DEMO-OUT-01-0.webm"
+      ]
+    },
+    {
+      "n": 15,
+      "id": "DEMO-OUT-03",
+      "area": "Storefront",
+      "title": "Nothing cached and backend down: all OFF, then recovers",
+      "expected": "Red banner, classic home, no crash; recovers by itself after restart",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Recovered on its own 26 s after the backend was healthy"
+      ],
+      "durationMs": 34108,
+      "screenshots": [
+        "15-DEMO-OUT-03-unavailable.png",
+        "15-DEMO-OUT-03-recovered.png"
+      ],
+      "videos": [
+        "15-DEMO-OUT-03-0.webm"
+      ]
+    },
+    {
+      "n": 16,
+      "id": "MCP-AUTH-05",
+      "area": "MCP",
+      "title": "A revoked key fails on the very next call",
+      "expected": "whoami works, revoke in the admin, next call is 401",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 3147,
+      "screenshots": [
+        "16-MCP-AUTH-05-revoked.png",
+        "16-MCP-AUTH-05-evidence.png"
+      ],
+      "videos": [
+        "16-MCP-AUTH-05-0.webm"
+      ]
+    },
+    {
+      "n": 17,
+      "id": "MCP-SEC-01",
+      "area": "MCP",
+      "title": "Even an admin key can't manage keys",
+      "expected": "/api/keys rejects the key; no MCP tool manages keys",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 1470,
+      "screenshots": [
+        "17-MCP-SEC-01-evidence.png"
+      ],
+      "videos": [
+        "17-MCP-SEC-01-0.webm"
+      ]
+    },
+    {
+      "n": 18,
+      "id": "MCP-ROLE-03",
+      "area": "MCP",
+      "title": "An editor key can't change prod",
+      "expected": "set_flag_enabled on prod is refused with a plain message; nothing changes",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 1544,
+      "screenshots": [
+        "18-MCP-ROLE-03-evidence.png"
+      ],
+      "videos": [
+        "18-MCP-ROLE-03-0.webm"
+      ]
+    },
+    {
+      "n": 19,
+      "id": "MCP-CHG-04",
+      "area": "MCP",
+      "title": "A stale version is a conflict, not an overwrite",
+      "expected": "Second write with the old version is refused; first write stands",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 1660,
+      "screenshots": [
+        "19-MCP-CHG-04-evidence.png"
+      ],
+      "videos": [
+        "19-MCP-CHG-04-0.webm"
+      ]
+    },
+    {
+      "n": 20,
+      "id": "MCP-CHG-06",
+      "area": "MCP",
+      "title": "Bad rules get one clear message naming the field",
+      "expected": "Invalid ID, percent 101, empty list, unknown type: each one plain message",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 1481,
+      "screenshots": [
+        "20-MCP-CHG-06-evidence.png"
+      ],
+      "videos": [
+        "20-MCP-CHG-06-0.webm"
+      ]
+    },
+    {
+      "n": 21,
+      "id": "MCP-AUD-01",
+      "area": "MCP",
+      "title": "Agent changes are in the audit log as key:<name>",
+      "expected": "Activity → Who: Agents lists the agent's changes",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "1 agent changes listed, e.g. key:qa-admin-agent"
+      ],
+      "durationMs": 2434,
+      "screenshots": [
+        "21-MCP-AUD-01-agents.png"
+      ],
+      "videos": [
+        "21-MCP-AUD-01-0.webm"
+      ]
+    },
+    {
+      "n": 22,
+      "id": "MCP-AGT-01",
+      "area": "MCP",
+      "title": "Agent rolls new-dashboard in prod out to 20%",
+      "expected": "Reads the flag, updates the % rule with the current version; audit says rollout 10% → 20%",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Driven by the MCP tool calls an agent makes (scripted, no LLM in the loop)."
+      ],
+      "durationMs": 2661,
+      "screenshots": [
+        "22-MCP-AGT-01-tool-calls.png",
+        "22-MCP-AGT-01-dashboard.png"
+      ],
+      "videos": [
+        "22-MCP-AGT-01-0.webm"
+      ]
+    },
+    {
+      "n": 23,
+      "id": "E2E-02",
+      "area": "End-to-end",
+      "title": "Progressive rollout 10% → 50% → 100% only ever adds users",
+      "expected": "Each step's users are a superset of the last; nobody loses the feature",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Users with it: 10% → 55/400, 50% → 210/400, 100% → 400/400; nobody lost it between steps",
+        "Audit (oldest first): added rule: 10% rollout · turned ON · rollout 10% → 50% · rollout 50% → 100%"
+      ],
+      "durationMs": 9189,
+      "screenshots": [
+        "23-E2E-02-10pct.png",
+        "23-E2E-02-50pct.png",
+        "23-E2E-02-100pct.png",
+        "23-E2E-02-evidence.png"
+      ],
+      "videos": [
+        "23-E2E-02-0.webm"
+      ]
+    },
+    {
+      "n": 24,
+      "id": "E2E-03",
+      "area": "End-to-end",
+      "title": "Kill switch: turning a prod flag off removes it for everyone, live",
+      "expected": "Storefront shows OFF live; rules kept",
+      "status": "PASS",
+      "error": null,
+      "notes": [
+        "Storefront showed OFF 0.2 s after the switch, no reload",
+        "50 sampled users all OFF; the 100% rule is kept"
+      ],
+      "durationMs": 3805,
+      "screenshots": [
+        "24-E2E-03-dialog.png",
+        "24-E2E-03-off.png"
+      ],
+      "videos": [
+        "24-E2E-03-0.webm"
+      ]
+    },
+    {
+      "n": 25,
+      "id": "E2E-04",
+      "area": "End-to-end",
+      "title": "Editor can't change prod: UI, API or MCP",
+      "expected": "All three refused; prod unchanged; no audit entry",
+      "status": "PASS",
+      "error": null,
+      "notes": [],
+      "durationMs": 2580,
+      "screenshots": [
+        "25-E2E-04-ui-locked.png",
+        "25-E2E-04-evidence.png"
+      ],
+      "videos": [
+        "25-E2E-04-0.webm"
+      ]
+    }
+  ]
+}

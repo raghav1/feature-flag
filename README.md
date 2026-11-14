@@ -247,7 +247,7 @@ It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise 
 | `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
 | `admin`, `demo` | 104 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the shared `design/tokens.css`), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
 
-No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md). The manual test plan for the admin, the storefront and MCP is in [docs/qa-test-plan.md](docs/qa-test-plan.md).
+No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md). The manual test plan for the admin, the storefront and MCP is in [docs/qa-test-plan.md](docs/qa-test-plan.md). Its [top 25 cases](docs/qa-top-25.md) are executed in a real browser by `qa/` (Playwright), with a recorded video, screenshots and a pass/fail report: [qa/results/REPORT.md](qa/results/REPORT.md).
 
 ## Assumptions
 
