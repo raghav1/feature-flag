@@ -2,7 +2,7 @@
 
 An internal feature-flag and progressive-rollout service: admin dashboard, Java backend on PostgreSQL, and a demo storefront that reads the flags.
 
-> Work in progress. Phases 0–3 are done: scaffold, evaluation engine, admin API (login, roles, audit), and `/api/evaluate` with the demo storefront. The admin UI is still a placeholder (phase 4). See [docs/plan.md](docs/plan.md).
+> Phases 0–4 are done: evaluation engine, admin API with login/roles/audit, admin UI, `/api/evaluate`, and the demo storefront. Next up: README polish (phase 5), then stretch goals. See [docs/plan.md](docs/plan.md).
 
 ## Run it
 
@@ -25,6 +25,18 @@ Prerequisite: Docker (running). A local JDK 21+ and Node 20+ are used when prese
 ```bash
 ./test.sh
 ```
+
+## Admin dashboard
+
+Open http://localhost:5173 and sign in (logins below). Then:
+
+- Flip the per-environment switches in the table.
+- Click a row to edit its rules for dev or prod: add, remove and reorder rules, and set the **Otherwise** value.
+- See the flag's history at the bottom of the panel, e.g. "editor · dev · rollout 5% → 10% · 2 min ago".
+
+What you can change follows your role. The server tells the UI through `can` on `/api/auth/me`, so a viewer sees everything read-only and an editor can't touch prod. The server enforces it either way.
+
+If someone else saves the same rules while you're editing, your save is rejected (409) and you're offered a reload. A toggle by someone else doesn't block your rules edit.
 
 ## Demo storefront
 
@@ -59,9 +71,9 @@ All endpoints need a login session except `POST /api/auth/login`. Changes need t
 
 | Method | Path | Who | Body / notes |
 |---|---|---|---|
-| POST | `/api/auth/login` | anyone | `{username, password}` → `{username, role}` |
+| POST | `/api/auth/login` | anyone | `{username, password}` → same as `/me` |
 | POST | `/api/auth/logout` | logged in | 204 |
-| GET | `/api/auth/me` | logged in | `{username, role}` |
+| GET | `/api/auth/me` | logged in | `{username, role, can: {createFlag, editDescription, deleteFlag, changeEnvironments}}`. Login returns the same |
 | GET | `/api/environments` | logged in | `[{key, name}]` |
 | GET | `/api/flags` | logged in | flags with per-env `enabled`, `otherwise`, `rules`, `version` |
 | GET | `/api/flags/{key}` | logged in | one flag |

@@ -1,5 +1,7 @@
 package dev.flags.backend.auth;
 
+import dev.flags.backend.access.Permissions;
+import dev.flags.backend.access.PermissionsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -21,18 +23,24 @@ class AuthController {
 
     record LoginRequest(@NotBlank String username, @NotBlank String password) {}
 
+    /** The user plus what they may change, so the UI can enable the right controls. */
+    record MeView(String username, Role role, Permissions can) {}
+
     private final AuthService authService;
     private final CurrentUser currentUser;
+    private final PermissionsService permissions;
     private final SecurityContextRepository securityContextRepository;
 
-    AuthController(AuthService authService, CurrentUser currentUser, SecurityContextRepository securityContextRepository) {
+    AuthController(AuthService authService, CurrentUser currentUser, PermissionsService permissions,
+            SecurityContextRepository securityContextRepository) {
         this.authService = authService;
         this.currentUser = currentUser;
+        this.permissions = permissions;
         this.securityContextRepository = securityContextRepository;
     }
 
     @PostMapping("/login")
-    AppUser login(@Valid @RequestBody LoginRequest body, HttpServletRequest request, HttpServletResponse response) {
+    MeView login(@Valid @RequestBody LoginRequest body, HttpServletRequest request, HttpServletResponse response) {
         Authentication authentication = authService.authenticate(body.username(), body.password());
 
         if (request.getSession(false) != null) {
@@ -43,11 +51,15 @@ class AuthController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, request, response);
 
-        return authService.toAppUser(authentication);
+        return view(authService.toAppUser(authentication));
     }
 
     @GetMapping("/me")
-    AppUser me() {
-        return currentUser.get();
+    MeView me() {
+        return view(currentUser.get());
+    }
+
+    private MeView view(AppUser user) {
+        return new MeView(user.username(), user.role(), permissions.of(user));
     }
 }

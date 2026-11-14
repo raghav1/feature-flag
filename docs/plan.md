@@ -120,7 +120,7 @@ Errors use `application/problem+json`. Validation runs at the boundary (`@Valid`
 | Method | Path | Who | Purpose |
 |---|---|---|---|
 | POST | `/api/auth/login`, `/api/auth/logout` | anyone | session login/out |
-| GET | `/api/auth/me` | logged in | current user + role |
+| GET | `/api/auth/me` | logged in | current user, role, and `can` (what they may change, computed by `AccessPolicy`) |
 | GET | `/api/environments` | logged in | list envs |
 | GET | `/api/flags` | logged in | flags with per-env state |
 | POST | `/api/flags` | admin, editor | create `{key, description}` |

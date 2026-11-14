@@ -28,7 +28,9 @@ class AuthApiTest extends ApiTest {
         mvc.perform(get("/api/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(username))
-                .andExpect(jsonPath("$.role").value(role));
+                .andExpect(jsonPath("$.role").value(role))
+                .andExpect(jsonPath("$.can.createFlag").isBoolean())
+                .andExpect(jsonPath("$.can.changeEnvironments").isArray());
     }
 
     @ParameterizedTest

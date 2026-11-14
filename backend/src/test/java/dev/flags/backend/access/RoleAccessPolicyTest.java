@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.flags.backend.auth.AppUser;
 import dev.flags.backend.auth.Role;
 import dev.flags.backend.error.ForbiddenException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -72,6 +73,19 @@ class RoleAccessPolicyTest {
         // Nulls are normalised at the API boundary; reaching here with one is a bug, so fail loudly.
         assertThatNullPointerException().isThrownBy(() -> policy.allowsEnvironmentChange(user(Role.ADMIN), null));
         assertThatNullPointerException().isThrownBy(() -> policy.requireEnvironmentChange(user(Role.EDITOR), null));
+    }
+
+    @ParameterizedTest(name = "{0}: create={1} describe={2} delete={3} envs={4}")
+    @CsvSource(delimiter = '|', textBlock = """
+            ADMIN  | true  | true  | true  | dev,prod
+            EDITOR | true  | true  | false | dev
+            VIEWER | false | false | false | ''
+            """)
+    void permissionsSummariseTheMatrix(Role role, boolean create, boolean describe, boolean delete, String envs) {
+        var expected = new Permissions(create, describe, delete,
+                envs.isEmpty() ? List.of() : List.of(envs.split(",")));
+
+        assertThat(policy.permissionsFor(user(role), List.of("dev", "prod"))).isEqualTo(expected);
     }
 
     @Test

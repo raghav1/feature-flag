@@ -78,3 +78,19 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
   1. The page stayed blank for about 60 s: nginx's default connect timeout, with first render waiting on flags. Fixed with a 3 s client timeout on evaluation, `proxy_connect_timeout 2s`, and no retry before first paint (useQuery retries in the background). Now it renders all-OFF with a banner, and Refresh recovers once the backend is back.
   2. **nginx refused to start if the backend container didn't exist** (`host not found in upstream`), so a backend outage at deploy time would take the demo and admin down completely. Fixed by resolving `backend` per request through Docker DNS. With the backend down the page serves 200 and `/api` fails in about 80 ms.
 - Also fixed: "Welcome back, Anonymous visitor" → "Welcome back".
+
+## Phase 4: admin UI
+
+- **Prompt:** start phase 4.
+- **Asked before changing the API:** the UI needs to know which controls to enable, and CLAUDE.md says to stop and ask before changing the API shape. The options were the server adding `can` to `/api/auth/me` (computed by `AccessPolicy`) or the UI mirroring the role table. **Chosen: server.** `PermissionsMatchEnforcementApiTest` logs in as each role and checks every promise in `can` against what the server actually does, so the UI can't drift from enforcement.
+- **Checked in the real browser, per role, against `docker compose`:**
+  - Viewer: all six switches disabled, no New flag or Delete, no editable inputs, "read-only" notes.
+  - Editor: dev switches enabled, prod disabled, the prod rules tab read-only, dev rules editable. Saving dev rules → history shows "editor · dev · added rule: users u_102, u_303; otherwise ON → OFF".
+  - Admin: an invalid key gets a field error; a valid key creates the flag (OFF everywhere) and selects it. Toggling prod → "turned ON". Delete goes through a confirm step, and the history survives the delete.
+- **Bugs found in the browser and fixed:**
+  1. **Login looked stuck:** the API returned 200 but the screen stayed on the login form. `queryClient.clear()` removed the `me` query App was subscribed to, so the following `setQueryData` landed in a new query nobody watched. Logout had the same bug. Fixed with `switchSession()`, which removes everything except `me` and then sets it.
+  2. **Reload after a conflict restored stale rules:** after a 409, "Reload rules" reset to the cached (stale) state, so the next save would conflict again. Fixed by refetching flags (and history) on any save error and on Discard/Reload. Re-tested: the warning appears and Reload shows the other user's 70%.
+  3. History didn't refresh after an external change. It now refetches along with the flag.
+  4. Disabled inputs didn't look disabled (prod rules for an editor looked editable). Styled them.
+- **Designed for, then verified:** toggling a flag bumps that environment's version, which would make an in-progress rules edit fail with a false 409. The editor rebases silently when only the version moved, and reports a real conflict only when the rules themselves changed. Tested both: edit + toggle + save → 200; edit + someone else's rules change + save → 409 with a warning.
+- **Testing lesson:** with the browser pane hidden, screenshots were sometimes stale frames that contradicted the DOM (one showed "No changes recorded yet" right after a successful save). I went by DOM reads and re-checked; noted in CLAUDE.md.

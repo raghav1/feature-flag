@@ -57,6 +57,9 @@ npm --prefix demo run dev          # demo with hot reload
 
 - TypeScript `strict`, no `any`. API types live in one `api.ts` per app.
 - TanStack Query for server state. Plain CSS; polished design is out of scope.
+- The admin UI never decides permissions itself: it enables controls from `can` on `/api/auth/me` (computed by `AccessPolicy`; `PermissionsMatchEnforcementApiTest` guards the two from drifting).
+- Switching users in the admin app goes through `switchSession()`, not `queryClient.clear()` (that detaches the `me` query from its observer).
+- Browser checks: trust the DOM (`read_page`, `javascript_tool`) over screenshots. When the browser pane is hidden, screenshots can be stale frames.
 - `/api/evaluate` is public by design (SDK keys ship to browsers): it must never return rules or targeting data. `EvaluateApiTest.responseContainsResultsOnlyNeverRules` guards this.
 - Treat the flag service as fallible: time out, render with everything OFF, and say so.
 
