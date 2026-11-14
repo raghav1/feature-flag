@@ -11,9 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@flags/sdk": "file:../sdk",
+    "@fontsource-variable/inter": "5.3.0",
+    "lucide-react": "1.61.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@flags/sdk": "file:../sdk"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.23",

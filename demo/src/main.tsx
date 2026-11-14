@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { clientFor } from "./flags";
 import { readSelection, sdkUser } from "./users";
+import "@fontsource-variable/inter";
 import "./styles.css";
 
 /**

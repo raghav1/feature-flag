@@ -1,4 +1,4 @@
-# Build context is the repo root: the demo depends on the SDK in ../sdk.
+# Build context is the repo root: the demo depends on the SDK in ../sdk and the design tokens in ../design.
 FROM node:22-alpine AS build
 WORKDIR /src
 COPY sdk/package.json sdk/
@@ -6,6 +6,7 @@ COPY demo/package.json demo/package-lock.json demo/
 RUN cd demo && npm ci
 COPY sdk/tsconfig.json sdk/
 COPY sdk/src sdk/src
+COPY design/ design/
 COPY demo/ demo/
 ARG VITE_SDK_KEY_DEV
 ARG VITE_SDK_KEY_PROD

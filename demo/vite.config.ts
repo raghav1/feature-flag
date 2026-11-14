@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5174,
+    // design/tokens.css and the SDK live one level up.
+    fs: { allow: [".."] },
     proxy: { "/api": "http://localhost:8080" },
   },
 });

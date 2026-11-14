@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import css from "./styles.css?raw";
+// The tokens live in design/tokens.css, shared with the demo storefront, so this covers both apps.
+import css from "../../design/tokens.css?raw";
 
-/** The --tokens declared in a block, e.g. `:root {` or `:root[data-theme="dark"] {`. */
+/** The --tokens declared in a block, e.g. `:root {` or `[data-theme="dark"] {`. */
 function tokens(selector: string): Record<string, string> {
   const start = css.indexOf(`${selector} {`);
-  if (start === -1) throw new Error(`no ${selector} block in styles.css`);
+  if (start === -1) throw new Error(`no ${selector} block in tokens.css`);
   const block = css.slice(start, css.indexOf("}", start));
   return Object.fromEntries([...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2]!.trim()]));
 }
@@ -44,7 +45,10 @@ const TEXT_PAIRS: [string, string][] = [
   ["fg-on-emphasis", "success-emphasis"],
   ["fg-on-emphasis", "danger-emphasis"],
   ["fg-on-emphasis", "accent-emphasis"],
-  ["accent-fg", "canvas-default"],
+  // Demo storefront: hero copy on the tinted hero box, prices, debug footer.
+  ["fg-muted", "accent-subtle"],
+  ["success-fg", "canvas-default"],
+  ["danger-fg", "danger-subtle"],
 ];
 
 /** Icons on tinted backgrounds: WCAG asks 3:1 for graphics. */
@@ -53,11 +57,13 @@ const ICON_PAIRS: [string, string][] = [
   ["done-fg", "done-subtle"],
   ["danger-fg", "danger-subtle"],
   ["success-fg", "success-subtle"],
+  ["attention-fg", "attention-subtle"],
+  ["success-fg", "canvas-subtle"],
 ];
 
 describe.each([
   ["light", ":root"],
-  ["dark", ':root[data-theme="dark"]'],
+  ["dark", '[data-theme="dark"]'],
 ])("%s theme", (_name, selector) => {
   const t = tokens(selector);
 

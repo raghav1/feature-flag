@@ -1,3 +1,4 @@
+import { CloudOff, RefreshCw, Store, TriangleAlert } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import type { Env } from "./api";
 import { DebugPanel } from "./DebugPanel";
@@ -10,9 +11,15 @@ interface AppProps {
   resolvedInMs: number;
 }
 
+const ENVS: { value: Env; label: string }[] = [
+  { value: "dev", label: "Dev" },
+  { value: "prod", label: "Prod" },
+];
+
 export function App({ initialSelection, resolvedInMs }: AppProps) {
   const [selection, setSelection] = useState(initialSelection);
   const [pending, setPending] = useState<Selection | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const latestRequest = useRef<Selection | null>(null);
 
   const client = clientFor(selection.env);
@@ -34,16 +41,32 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
     }
   }
 
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      await client.refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const shown = pending ?? selection;
 
+  // The theme is itself a feature flag: dark-mode decides it, not the visitor's system setting.
   return (
-    <div className={isOn("dark-mode") ? "page dark" : "page"}>
-      <header className="topbar">
-        <strong className="brand">Corner Shop</strong>
-        <span className="tag">demo storefront</span>
+    <div className="page" data-theme={isOn("dark-mode") ? "dark" : "light"}>
+      <header className="header">
+        <span className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            <Store size={18} />
+          </span>
+          Corner Shop
+        </span>
+        <span className="label">Demo storefront</span>
+
         <div className="controls">
-          <label>
-            Viewing as{" "}
+          <label className="field">
+            <span className="field-label">Viewing as</span>
             <select
               value={shown.user.key}
               onChange={(e) => {
@@ -58,27 +81,49 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
               ))}
             </select>
           </label>
-          <label>
-            Env{" "}
-            <select value={shown.env} onChange={(e) => void select({ ...shown, env: e.target.value as Env })}>
-              <option value="prod">prod</option>
-              <option value="dev">dev</option>
-            </select>
-          </label>
-          <button type="button" onClick={() => void client.refresh()}>
-            Refresh
+
+          <span className="segmented" role="radiogroup" aria-label="Environment">
+            {ENVS.map((e) => (
+              <button
+                key={e.value}
+                type="button"
+                role="radio"
+                aria-checked={shown.env === e.value}
+                className={shown.env === e.value ? "selected" : undefined}
+                onClick={() => {
+                  if (shown.env !== e.value) void select({ ...shown, env: e.value });
+                }}
+              >
+                {e.label}
+              </button>
+            ))}
+          </span>
+
+          <button
+            type="button"
+            className={refreshing ? "icon-button spinning" : "icon-button"}
+            aria-label="Refresh flags"
+            title="Refresh flags"
+            disabled={refreshing}
+            onClick={() => void refresh()}
+          >
+            <RefreshCw size={16} />
           </button>
         </div>
       </header>
 
       {state.status === "unavailable" && (
-        <p className="banner" role="alert">
-          Couldn't reach the flag service, so every feature is OFF. {state.error}
+        <p className="flash danger" role="alert">
+          <CloudOff size={16} aria-hidden="true" />
+          <span>
+            Couldn't reach the flag service, so every feature is OFF. {state.error}
+          </span>
         </p>
       )}
       {state.status === "stale" && (
-        <p className="banner" role="status">
-          The flag service is unreachable; showing the last known flags.
+        <p className="flash warn" role="status">
+          <TriangleAlert size={16} aria-hidden="true" />
+          <span>The flag service is unreachable; showing the last known flags.</span>
         </p>
       )}
 

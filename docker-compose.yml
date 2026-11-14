@@ -33,7 +33,9 @@ services:
         condition: service_healthy
 
   admin:
-    build: ./admin
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
     ports:
       - "${ADMIN_PORT:-5173}:80"
     depends_on:
