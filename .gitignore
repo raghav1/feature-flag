@@ -1,0 +1,15 @@
+# build output
+target/
+node_modules/
+dist/
+*.tsbuildinfo
+
+# local env and editors
+.env
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# the brief stays out of the repo
+*.pdf
