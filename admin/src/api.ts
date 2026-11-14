@@ -72,6 +72,14 @@ export interface CreatedKey {
   token: string;
 }
 
+export type IdKind = "user" | "customer";
+
+/** An ID the flag service has evaluated. */
+export interface SeenId {
+  value: string;
+  lastSeen: string;
+}
+
 export interface FieldError {
   field: string;
   message: string;
@@ -145,6 +153,13 @@ export const api = {
       otherwise,
       version,
     }),
+  suggestIds: (kind: IdKind, query: string, limit = 8) =>
+    request<SeenId[]>("GET", `/api/contexts?${new URLSearchParams({ kind, query, limit: String(limit) }).toString()}`),
+  unseenIds: (kind: IdKind, ids: readonly string[]) => {
+    const params = new URLSearchParams({ kind });
+    ids.forEach((id) => params.append("value", id));
+    return request<{ unseen: string[] }>("GET", `/api/contexts/unseen?${params.toString()}`);
+  },
   keys: () => request<ApiKey[]>("GET", "/api/keys"),
   createKey: (name: string, role: Role, expiresInDays: number) =>
     request<CreatedKey>("POST", "/api/keys", { name, role, expiresInDays }),

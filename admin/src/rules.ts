@@ -1,10 +1,18 @@
 import type { Rule } from "./api";
 
-/** Editable form of a rule: ID lists are free text until saved. */
+/**
+ * Editable form of a rule. `ids` are the committed chips (always well-formed); `pending` is text typed but not
+ * yet turned into chips. Saving includes pending IDs, so what's on screen is what gets saved.
+ */
 export type DraftRule =
-  | { type: "users"; ids: string; serve: boolean }
-  | { type: "customers"; ids: string; serve: boolean }
+  | { type: "users"; ids: string[]; pending: string; serve: boolean }
+  | { type: "customers"; ids: string[]; pending: string; serve: boolean }
   | { type: "percent"; percent: number; serve: boolean };
+
+/** Committed chips plus any well-formed pending IDs, in order, without duplicates. */
+export function effectiveIds(draft: { ids: readonly string[]; pending: string }): string[] {
+  return addIds(draft.ids, draft.pending).ids;
+}
 
 export const RULE_LABELS: Record<DraftRule["type"], string> = {
   users: "User ID in",
@@ -17,12 +25,38 @@ export function parseIds(text: string): string[] {
   return [...new Set(text.split(/[\s,]+/).filter((id) => id.length > 0))];
 }
 
+/** Mirrors the server's ID rule (ContextIds.PATTERN). The server is the authority; this gives instant feedback. */
+const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$/;
+export const ID_RULE = "Use letters, digits and _ . : @ -, starting with a letter or digit (max 128).";
+
+export function isValidId(id: string): boolean {
+  return ID_PATTERN.test(id);
+}
+
+export interface IdEntry {
+  /** The list after adding the valid, new IDs. */
+  ids: string[];
+  /** Entries refused as malformed, to show the user. */
+  rejected: string[];
+}
+
+/** Adds typed or pasted text (one or many IDs) to a list: skips duplicates, refuses malformed IDs. */
+export function addIds(current: readonly string[], text: string): IdEntry {
+  const ids = [...current];
+  const rejected: string[] = [];
+  for (const id of parseIds(text)) {
+    if (!isValidId(id)) rejected.push(id);
+    else if (!ids.includes(id)) ids.push(id);
+  }
+  return { ids, rejected };
+}
+
 export function toDraft(rule: Rule): DraftRule {
   switch (rule.type) {
     case "users":
-      return { type: "users", ids: rule.userIds.join(", "), serve: rule.serve };
+      return { type: "users", ids: [...rule.userIds], pending: "", serve: rule.serve };
     case "customers":
-      return { type: "customers", ids: rule.customerIds.join(", "), serve: rule.serve };
+      return { type: "customers", ids: [...rule.customerIds], pending: "", serve: rule.serve };
     case "percent":
       return { type: "percent", percent: rule.percent, serve: rule.serve };
   }
@@ -31,26 +65,40 @@ export function toDraft(rule: Rule): DraftRule {
 export function fromDraft(draft: DraftRule): Rule {
   switch (draft.type) {
     case "users":
-      return { type: "users", userIds: parseIds(draft.ids), serve: draft.serve };
+      return { type: "users", userIds: effectiveIds(draft), serve: draft.serve };
     case "customers":
-      return { type: "customers", customerIds: parseIds(draft.ids), serve: draft.serve };
+      return { type: "customers", customerIds: effectiveIds(draft), serve: draft.serve };
     case "percent":
       return { type: "percent", percent: draft.percent, serve: draft.serve };
   }
 }
 
 export function newDraft(type: DraftRule["type"]): DraftRule {
-  return type === "percent" ? { type, percent: 10, serve: true } : { type, ids: "", serve: true };
+  return type === "percent" ? { type, percent: 10, serve: true } : { type, ids: [], pending: "", serve: true };
 }
 
 /** Problems that would make the server reject the save, per rule index. */
-export function draftProblems(drafts: DraftRule[]): Map<number, string> {
-  const problems = new Map<number, string>();
+export interface DraftProblem {
+  message: string;
+  /** "hint": not finished yet (an empty new rule), shown neutrally. "error": a mistake. Both block saving. */
+  severity: "hint" | "error";
+}
+
+/** What would make the server reject the save, per rule index. */
+export function draftProblems(drafts: DraftRule[]): Map<number, DraftProblem> {
+  const problems = new Map<number, DraftProblem>();
   drafts.forEach((d, i) => {
     if (d.type === "percent") {
-      if (!Number.isInteger(d.percent) || d.percent < 0 || d.percent > 100) problems.set(i, "Use a whole number from 0 to 100.");
-    } else if (parseIds(d.ids).length === 0) {
-      problems.set(i, d.type === "users" ? "Add at least one user ID." : "Add at least one customer.");
+      if (!Number.isInteger(d.percent) || d.percent < 0 || d.percent > 100) {
+        problems.set(i, { message: "Use a whole number from 0 to 100.", severity: "error" });
+      }
+    } else {
+      const rejected = addIds(d.ids, d.pending).rejected;
+      if (rejected.length > 0 || d.ids.some((id) => !isValidId(id))) {
+        problems.set(i, { message: `Fix ${rejected.map((r) => `"${r}"`).join(", ") || "the IDs"} first. ${ID_RULE}`, severity: "error" });
+      } else if (effectiveIds(d).length === 0) {
+        problems.set(i, { message: d.type === "users" ? "Add at least one user ID." : "Add at least one customer.", severity: "hint" });
+      }
     }
   });
   return problems;

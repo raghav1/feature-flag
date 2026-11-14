@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, ApiError, type EnvironmentState, type Rule } from "./api";
+import { IdListInput } from "./IdListInput";
 import { keys } from "./queries";
 import { RULE_LABELS, draftProblems, fromDraft, move, newDraft, toDraft, type DraftRule } from "./rules";
 
@@ -114,13 +115,14 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
                 %
               </span>
             ) : (
-              <input
-                className="ids"
-                value={rule.ids}
+              <IdListInput
+                kind={rule.type === "users" ? "user" : "customer"}
+                ids={rule.ids}
+                pending={rule.pending}
+                onChange={(ids, pending) => update(i, { ...rule, ids, pending })}
                 disabled={!canEdit}
-                aria-label={`Rule ${i + 1} ${rule.type === "users" ? "user IDs" : "customers"}`}
-                placeholder={rule.type === "users" ? "u_102, u_207" : "acme, zenith"}
-                onChange={(e) => update(i, { ...rule, ids: e.target.value })}
+                label={`Rule ${i + 1} ${rule.type === "users" ? "user IDs" : "customers"}`}
+                placeholder={rule.type === "users" ? "Type a user ID, e.g. u_102" : "Type a customer, e.g. acme"}
               />
             )}
             <span className="arrow">→</span>
@@ -151,7 +153,11 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
                 </button>
               </span>
             )}
-            {problems.has(i) && <span className="error small rule-problem">{problems.get(i)}</span>}
+            {problems.has(i) && (
+              <span className={`${problems.get(i)?.severity === "hint" ? "muted" : "error"} small rule-problem`}>
+                {problems.get(i)?.message}
+              </span>
+            )}
           </li>
         ))}
         <li className="rule otherwise">

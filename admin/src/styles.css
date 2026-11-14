@@ -109,3 +109,19 @@ table.keys td { padding: 8px 6px; border-top: 1px solid var(--border); vertical-
 table.keys tr.revoked td, table.keys tr.expired td { color: var(--muted); }
 .status { font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; background: #eee; }
 .status.active { background: #e3f4ea; color: #1f7a4d; }
+
+.id-list { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.id-input { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 34px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.id-input:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; }
+.id-input.disabled { background: var(--bg); }
+.id-input input { flex: 1; min-width: 120px; border: none; padding: 3px 2px; background: transparent; outline: none; }
+.chip { display: inline-flex; align-items: center; gap: 2px; padding: 1px 4px 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 0.85rem; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.id-input.disabled .chip { padding-right: 8px; }
+.chip.unseen { background: #fdf3df; color: #8a5a00; border: 1px dashed #d9a441; }
+.chip button { border: none; background: none; padding: 0 4px; color: inherit; font-size: 0.95rem; line-height: 1; }
+.suggestions { position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 10; list-style: none; margin: 0; padding: 4px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / 12%); max-height: 220px; overflow-y: auto; }
+.suggestions li { padding: 5px 10px; cursor: pointer; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85rem; }
+.suggestions li.active, .suggestions li:hover { background: var(--accent-soft); }
+.suggestions li .muted { font-family: system-ui, sans-serif; }
+.warning { color: #8a5a00; margin: 0; }
+.id-list .error { margin: 0; }

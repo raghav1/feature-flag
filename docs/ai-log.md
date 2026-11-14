@@ -193,3 +193,10 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
   - history showed `key:agent-check`; "last used" was recorded; after revoking, the next request got 401;
   - the scratch flag was deleted and the test key revoked afterwards.
 - **Fixed along the way:** a README test table that my phase 6b edit had mangled (the SDK row was spliced into the backend row).
+
+## Rule editor: ID chips with suggestions
+
+- **Prompt:** build the autocomplete (the editor half of the ID-validation work).
+- **What it does:** user and customer IDs are chips. Typing suggests IDs the service has seen, most recent first. Enter adds the typed text exactly unless a suggestion was highlighted with the arrow keys, so `u_1` never silently becomes `u_102`. Comma, space and paste add several at once; Backspace on an empty box removes the last chip. Malformed entries stay in the box with the reason, and unseen IDs get a dashed amber chip and one line of explanation (still allowed). An empty new rule now shows a neutral hint instead of a red error.
+- **Bug caught in the browser:** type an ID and click Save without pressing Enter, and **nothing was saved**. My first version turned the typed text into a chip on blur; that reflowed the row between mousedown and mouseup, so the click missed the button (or ran with the pre-blur state). The server still had no rules. **Fix:** typed text is part of the rule draft (`pending`): Save includes it, the "unsaved" detection sees it, a malformed pending entry blocks Save with the reason, and blur no longer changes the layout. Re-tested: type `u_303`, click Save → server has `[u_350, u_303]`, history "added rule: users u_350, u_303".
+- Unit-tested as pure functions (`addIds`, `effectiveIds`, `draftProblems` severity); the component was checked by hand in the browser (suggestions, arrow + Enter, exact typed entry, unseen marking, malformed refusal, Backspace, save without Enter).
