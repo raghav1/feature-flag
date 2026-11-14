@@ -15,16 +15,18 @@ feature-flags/
   backend/     Spring Boot 3: REST, Spring Security sessions, Postgres (Flyway), audit; depends on engine
   admin/       React + TS + Vite: login + admin dashboard (nginx in compose, proxies /api)
   demo/        React + TS + Vite: mock storefront + debug panel (nginx in compose, proxies /api)
-  sdk/         (stretch) TS client: isEnabled(), polling result cache, outage fallback
+  sdk/         TS client (built in phase 6): isEnabled(), result cache, polling, live updates, outage fallback
+  design/      shared design tokens for admin and demo (added after the plan)
+  qa/          Playwright runner for the top 25 QA cases (added after the plan)
   docker-compose.yml   postgres + backend + admin + demo
-  test.sh              mvn verify + typecheck/build both apps
+  test.sh              mvn verify + SDK/admin/demo tests and builds
 ```
 
 ```
  admin (React) ──session cookie──▶ ┌──────────── backend (Spring) ────────────┐
                                    │ controllers → services → repositories    │ ──▶ PostgreSQL
- demo  (React) ──X-SDK-Key───────▶ │               │                          │
-                                   │               ▼                          │
+ demo  (React) ──X-SDK-Key───────▶ │  /api/evaluate (+ SSE stream)            │
+ agents (MCP)  ──Bearer API key──▶ │  /mcp → same services, AccessPolicy      │
                                    │      EngineMapper → engine.Evaluator     │
                                    └──────────────────────────────────────────┘
 ```
@@ -139,11 +141,15 @@ An unknown flag at `/evaluate` returns `false` with `FLAG_NOT_FOUND` and HTTP 20
 
 ## Frontends
 
+*As planned; what shipped differs as noted under "Added after the plan" below.*
+
 - **admin**: login page; flag table with dev/prod toggles; a detail panel per env with the ordered rule editor (add/remove/reorder; user-ID list, customer-ID list, % slider) and an "Otherwise" row; audit list ("editor · rollout 5% → 10% · 2 min ago"); "+ New flag"; delete with confirm. Controls follow the user's role. TanStack Query.
 - **demo**: mock storefront with a "Viewing as" dropdown of fictional users (a static list in the app). It evaluates all flags before first render and shows a debug panel with each value and reason, plus a refresh button (SSE in stretch).
 - Seed flags: `new-dashboard`, `beta-reports`, `dark-mode`, matching the wireframe. All data is fictional.
 
 ## Build phases (commit after each)
+
+All phases are done (phase 6 included both stretch items).
 
 | # | Phase | Done when |
 |---|---|---|
@@ -182,3 +188,25 @@ These are also recorded in the README under Assumptions.
 
 - `GET /api/audit` gains `q` (text in summary, flag key or actor; LIKE wildcards escaped), `action`, `actor` (person / key) and a `before` cursor for paging. Existing callers are unchanged. The MCP `get_audit_log` tool takes the same filters.
 - Admin **Activity** tab: the whole trail, grouped by day, searchable and filterable, with "Load older" and links to each flag.
+
+## Added after the plan: rule-ID checks and suggestions
+
+- Rule user and customer IDs are validated at the API boundary (letters, digits and `_ . : @ -`, starting with a letter or digit, max 128); a bad one is a 400 naming the field, e.g. `rules[0].userIds[1]`.
+- `seen_context` table (V3): user and customer IDs the service has evaluated, with first/last seen. `/api/contexts` and `/api/contexts/unseen` feed the editor's suggestions and its "never seen" warning (still allowed: you may target someone before their first visit), and the MCP `suggest_ids` / `find_unseen_ids` tools.
+
+## Added after the plan: an admin for product managers
+
+- The flag table and side panel became one list of **expandable rows**. Collapsed, a row leads with a Live / Partial / Off badge for prod (icon + word) and a plain-English audience sentence (`audience.ts`, unit-tested against the engine's semantics). Expanded: environment tabs, a status card, rules as cards with ID chips, the flag's history, and settings with a danger zone.
+- Prod switches confirm first, in words that match what will happen (`prodImpact`).
+- `?flag=&env=` in the URL keeps the expanded flag across reloads and shared links.
+
+## Added after the plan: one design system
+
+- GitHub Primer semantic colour tokens, light and dark, in `design/tokens.css`, imported by admin and demo. 4px spacing grid, 6px radius, borders over shadows, Inter, motion only on transform/opacity.
+- `admin/src/contrast.test.ts` checks every text/background pair the apps use at 4.5:1 (icons 3:1) in both themes.
+- Admin: light / dark / system toggle. Storefront: its theme is the `dark-mode` flag, so the demo shows a flag at work.
+
+## Added after the plan: QA
+
+- `docs/qa-test-plan.md`: 161 manual cases plus 9 regression checks across admin, storefront, MCP, end-to-end and security.
+- `docs/qa-top-25.md`: the 25 most important, automated by `qa/` (Playwright) against a separate compose project (`ff-qa`, ports 6173/6174) reset to seed data, with a recorded video, screenshots and `qa/results/REPORT.md`. Latest: 25/25; it found one bug (Discard stuck after typing a malformed ID), fixed.

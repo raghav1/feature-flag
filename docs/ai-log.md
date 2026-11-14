@@ -252,3 +252,9 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
 - **Runs 2 and 3: 25/25.** Run 3 only improved evidence: live-update timings measured from before the click (they had read "0.0 s"), the storefront's debug row scrolled into view in side-by-side shots, and evidence pages captured in full.
 - **Honest limits, stated in the report:** MCP-AGT-01 replays the tool calls an agent makes rather than running an LLM; tokens are blurred in the recordings and all run keys are revoked afterwards.
 
+## Publishing, connecting Claude Code, and the docs pass
+
+- **Public repo:** pushed to github.com/raghav1/feature-flag on request. Before pushing, I scanned every commit, not just the working tree, for real secrets (API tokens, cloud keys, private keys, `.env` files): none. The fictional local defaults (seeded logins, `dev-sdk-key` / `prod-sdk-key`, the Postgres password) were kept by choice and are now labelled "local demo only" in the README. The QA results held absolute paths with the local username, so I amended that unpushed commit to keep them out of history.
+- **Claude Code + MCP:** installed the Claude Code CLI and added the server with `claude mcp add` (shows `✔ Connected`). The admin key was pasted into chat, so it should be revoked after the demo; CLAUDE.md now says never to commit tokens.
+- **Docs pass:** README, CLAUDE.md and plan.md brought in line with the code: test counts (428), the MCP path in the architecture, `design/` and `qa/`, the QA commands, the storefront's flag-driven theme, known issues (the ~30 s test-JVM exit), and the workflow now that every phase is done.
+

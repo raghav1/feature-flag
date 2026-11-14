@@ -7,6 +7,8 @@ An internal feature-flag and progressive-rollout service, a much smaller LaunchD
 You need Docker.
 
 ```bash
+git clone https://github.com/raghav1/feature-flag.git
+cd feature-flag
 docker compose up --build
 ```
 
@@ -33,7 +35,7 @@ If a port is already taken, override it: `ADMIN_PORT`, `DEMO_PORT`, `BACKEND_POR
 ## Two-minute walkthrough
 
 1. Open the **demo** (http://localhost:5174). **Viewing as** Ben (acme) sees the *New dashboard* and *Beta reports* cards. The debug panel says why: "matched rule 1 (user ID list)", "matched rule 1 (customer list)", "flag is OFF in prod".
-2. Switch to **Dee**: still the new dashboard, this time via "rule 3 (% rollout)". Switch to **Eli**: nothing matches, so you get the classic home page. Switch **Env** to dev: everything is ON and the store goes dark (`dark-mode`).
+2. Switch to **Dee**: still the new dashboard, this time via "rule 3 (% rollout)". Switch to **Eli**: nothing matches, so you get the classic home page. Click **Dev** in the header: everything is ON and the store goes dark (`dark-mode`).
 3. Open the **admin** (http://localhost:5173) and sign in as `editor`. Each flag is a row that says whether it's **Live, Partial or Off in prod** and who gets it, in plain words. The prod switches are locked for an editor; click a row to expand it, and dev is editable.
 4. Sign in as `admin`, expand `dark-mode`, and in **Production** change the rollout to 100% and save. Turn on its prod switch: a dialog says who will get it before anything changes.
 5. Back in the demo (prod), no refresh is needed: the change arrives over the live stream and every user with an ID now gets the dark theme. The flag's history in the admin reads "admin · prod · rollout 25% → 100%" and "admin · prod · turned ON".
@@ -44,11 +46,11 @@ From the brief's **must-haves**:
 
 | Must-have | Where |
 |---|---|
-| Boolean flags with key + description; dev and prod each with their own on/off state and rules | `flag` + `flag_environment` tables; admin table + detail panel |
+| Boolean flags with key + description; dev and prod each with their own on/off state and rules | `flag` + `flag_environment` tables; admin flag list with expandable rows |
 | Admin UI: list, toggle per environment, edit rules | `admin/` (React + TanStack Query) |
 | Audit log: flag, environment, what changed, when, who | `audit_event`; plain-words summaries such as "rollout 5% → 10%" |
 | Unit tests on the evaluation engine: rules, rollout determinism, defaults | `engine/src/test`: 91 tests |
-| Separate demo web app that reads the flags | `demo/`: mock storefront, user switcher, debug panel |
+| Separate demo web app that reads the flags | `demo/`: mock storefront, "Viewing as" user switcher, Dev/Prod switch, debug panel |
 
 Beyond them:
 - **Role-based access** (a stretch item): admin / editor / viewer, enforced on the server, so only admins can change prod.
@@ -56,6 +58,8 @@ Beyond them:
 - **Optimistic locking**: concurrent edits get a clear conflict, not a silent overwrite.
 - **Resilience**: if the flag service is down, the demo keeps its last known flags (marked stale), or renders with everything OFF if it has none.
 
+- **An admin built for product managers**: each flag is one expandable row that leads with **Live / Partial / Off in prod** and who gets it in plain English ("On for users u_102 and u_207, customer acme and 10% of users"). Prod changes confirm first and say who's affected; rule IDs are checked as you type, with suggestions from IDs the service has seen. An **Activity** tab searches the whole audit trail; an **API keys** tab (admins only) issues keys for agents.
+- **One design system for both apps**: GitHub Primer colour tokens in `design/tokens.css`, light and dark, with a test that every text colour pair meets 4.5:1 contrast. The admin has a light / dark / system toggle; the storefront's theme is the `dark-mode` flag itself.
 - **Live updates** (stretch): the demo listens to a server-sent event stream and refetches when a flag changes, so admin changes show up without a refresh. It reconnects by itself after outages and catches up on anything it missed.
 
 - **MCP server for agents**: any MCP client (Claude Code, Claude Desktop, …) can read and change everything the dashboard can, with an API key that acts as one role. See [Agents (MCP)](#agents-mcp).
@@ -66,7 +70,9 @@ Beyond them:
 ```
  admin (React) ──session cookie + CSRF──▶ ┌────────────── backend (Spring Boot) ──────────────┐
                                           │ controllers → services → repositories (JDBC)      │──▶ PostgreSQL
- demo  (React) ──X-SDK-Key──────────────▶ │                  │                                 │    (Flyway)
+ demo  (React) ──SDK: X-SDK-Key─────────▶ │  /api/evaluate, /api/evaluate/stream (SSE)        │    (Flyway)
+   └ @flags/sdk (cache, polling, live)    │                  │                                 │
+ agents (MCP)  ──Bearer API key─────────▶ │  /mcp → same services, same AccessPolicy           │
                                           │      EngineMapper → engine.Evaluator (plain Java)  │
                                           └────────────────────────────────────────────────────┘
 ```
@@ -79,7 +85,8 @@ Beyond them:
 | `demo/` | Demo storefront, React + TypeScript + Vite, served by nginx. Reads flags through the SDK. |
 | `sdk/` | TypeScript client SDK: cached `isEnabled`, polling, live updates, outage fallback. |
 | `design/` | `tokens.css`: the colour, spacing and type tokens both frontends use (GitHub Primer palette, light and dark). |
-| `docs/` | [plan.md](docs/plan.md) (design), [ai-log.md](docs/ai-log.md) (how the AI was directed). |
+| `qa/` | Playwright runner that executes the [top 25 QA cases](docs/qa-top-25.md) in a real browser, with video, screenshots and a [report](qa/results/REPORT.md). Run on demand, not part of `./test.sh`. |
+| `docs/` | [plan.md](docs/plan.md) (design), [ai-log.md](docs/ai-log.md) (how the AI was directed), [qa-test-plan.md](docs/qa-test-plan.md) and [qa-top-25.md](docs/qa-top-25.md) (QA). |
 
 ## How evaluation works
 
@@ -213,6 +220,8 @@ The backend is also an [MCP](https://modelcontextprotocol.io) server, so an AI a
 claude mcp add --transport http feature-flags http://localhost:5173/mcp --header "Authorization: Bearer ffk_..."
 ```
 
+Check it with `claude mcp list` (it should say `✔ Connected`). That adds the server for the current folder only; add `--scope user` to use it in every project. Start a new Claude session to get the tools.
+
 For other clients (Claude Desktop, Cursor, …) it's an HTTP MCP server at `http://localhost:5173/mcp` with that `Authorization` header. The dashboard's address proxies `/mcp` to the backend; `http://localhost:8080/mcp` works too.
 
 **Tools** (12), with the same rules, messages and JSON shapes as the dashboard:
@@ -240,16 +249,23 @@ Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, 
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 427 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 428 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
 | `backend` | 211 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules, ID suggestions; **MCP with a real MCP client**: key auth (missing, wrong, revoked, expired, session-vs-key), every tool, the role matrix through tools, a full flag lifecycle driven by an agent |
 | `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
-| `admin`, `demo` | 104 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the shared `design/tokens.css`), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked), relative times, reason explanations, URL state, API key status and connection snippets |
+| `admin`, `demo` | 105 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the shared `design/tokens.css`), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked and discardable), relative times, reason explanations, URL state, API key status and connection snippets |
 
-No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md). The manual test plan for the admin, the storefront and MCP is in [docs/qa-test-plan.md](docs/qa-test-plan.md). Its [top 25 cases](docs/qa-top-25.md) are executed in a real browser by `qa/` (Playwright), with a recorded video, screenshots and a pass/fail report: [qa/results/REPORT.md](qa/results/REPORT.md).
+**End-to-end in a browser.** `./test.sh` has no browser tests (per the brief). On top of it:
+- [docs/qa-test-plan.md](docs/qa-test-plan.md) is the full manual QA plan (161 cases across admin, storefront, MCP, end-to-end and security, plus 9 regression checks).
+- Its [top 25 cases](docs/qa-top-25.md) are automated by `qa/` (Playwright, Chromium) against a separate copy of the stack on ports 6173/6174, reset to seed data. Latest run: **25 of 25 passed**, with a recorded video, 43 screenshots and a report: [qa/results/REPORT.md](qa/results/REPORT.md). It found one real bug (Discard stuck after typing a malformed ID), since fixed.
+
+```bash
+ADMIN_PORT=6173 DEMO_PORT=6174 BACKEND_PORT=9080 POSTGRES_PORT=6433 docker compose -p ff-qa up -d --build
+cd qa && npm ci && node run.mjs --reset && node make-video.mjs && node report.mjs
+```
 
 ## Assumptions
 
@@ -282,7 +298,9 @@ No end-to-end browser tests (per the brief). Each UI flow was checked by hand in
   - login rate limiting;
   - user management instead of seeded users;
   - audit pagination;
-  - CI running `./test.sh`.
+  - CI running `./test.sh` (and the QA runner) on every push;
+  - sessions that survive a backend restart (today they live in memory, so a restart signs everyone out).
+- **Known issue (tests only):** the backend test JVM sometimes takes ~30 s to exit after all tests pass Results are unaffected; the cause isn't diagnosed yet.
 - **Known issue (tests only):** MockMvc's `csrf()` helper changes the CSRF filter in Spring's shared test context, which made one cookie assertion depend on test order. The trigger is confirmed, but why the cookie disappears is not yet explained. Real CSRF behaviour is covered over real HTTP instead. Details in [docs/ai-log.md](docs/ai-log.md#known-issue-mockmvc-csrf-changes-the-shared-csrf-filter).
 
 ## How this was built with AI
@@ -291,17 +309,19 @@ Built with Claude Code, directed phase by phase, with a review and course correc
 
 - [CLAUDE.md](CLAUDE.md): the conventions and design principles the agent works to, and when it must stop and ask.
 - [docs/plan.md](docs/plan.md): the design, agreed before any code.
-- [docs/qa-test-plan.md](docs/qa-test-plan.md): the manual QA plan (admin, storefront, MCP, end-to-end).
+- [docs/qa-test-plan.md](docs/qa-test-plan.md) and [docs/qa-top-25.md](docs/qa-top-25.md): the QA plan, and the 25 cases executed with video in [qa/results/REPORT.md](qa/results/REPORT.md).
 - [docs/ai-log.md](docs/ai-log.md): the prompts for each phase, where the AI fell short and how it was corrected (a hard-coded attribute that broke open/closed, a recurring null bug fixed at the source, an order-dependent test investigated rather than replaced), and the bugs that only browser testing found.
 
 ## Project layout
 
 ```
 engine/    evaluation engine (plain Java) + tests
-backend/   Spring Boot API, Flyway migrations (db/migration), tests
+backend/   Spring Boot API, MCP server (/mcp), Flyway migrations (db/migration), tests
 admin/     admin dashboard (React)
 demo/      demo storefront (React), uses the SDK
 sdk/       TypeScript client SDK + tests
-docs/      plan.md, ai-log.md
+design/    shared design tokens (tokens.css) for admin and demo
+qa/        Playwright QA runner; results/ holds the latest report, screenshots and video
+docs/      plan.md, ai-log.md, qa-test-plan.md, qa-top-25.md
 test.sh    every test + frontend builds
 ```

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Internal feature-flag service: admin dashboard, Java backend on PostgreSQL, and a demo web app. **`docs/plan.md` is the design source of truth.** Read it before changing architecture, the data model, the API or the role matrix.
+Internal feature-flag service: admin dashboard, Java backend on PostgreSQL, a demo storefront, a TypeScript SDK and an MCP server for agents. Public repo: github.com/raghav1/feature-flag. **`docs/plan.md` is the design source of truth.** Read it before changing architecture, the data model, the API or the role matrix.
 
 ## Layout
 
@@ -12,7 +12,9 @@ Internal feature-flag service: admin dashboard, Java backend on PostgreSQL, and 
 | `demo/` | React + TS + Vite mock storefront (port 5174). Reads flags only through the SDK. |
 | `sdk/` | TypeScript client SDK (no runtime deps). The demo depends on it via `file:../sdk`. |
 | `backend/.../mcp`, `apikeys` | The MCP server at `/mcp` (tools in `AdminTools`) and agent API keys. |
-| `docs/` | `plan.md` (design), `ai-log.md` (how the agents were directed). |
+| `design/` | `tokens.css`: the shared design tokens (colour, spacing, type) both frontends import. |
+| `qa/` | Playwright runner for the top 25 QA cases (`run.mjs`, `harness.mjs`), video and report scripts; `results/` holds the latest report, screenshots and `qa-run.mp4`. Not part of `./test.sh`. |
+| `docs/` | `plan.md` (design), `ai-log.md` (how the agents were directed), `qa-test-plan.md` (full QA plan), `qa-top-25.md` (the automated subset). |
 
 ## Commands
 
@@ -23,6 +25,12 @@ docker compose up --build          # everything: postgres, backend :8080, admin 
 ./mvnw -pl backend spring-boot:run # backend against a local postgres
 npm --prefix admin run dev         # admin with hot reload
 npm --prefix demo run dev          # demo with hot reload
+npm --prefix admin test            # admin unit tests (incl. the contrast test on design/tokens.css)
+
+# Browser QA (top 25 cases) against a separate stack on 6173/6174, so it never touches yours:
+ADMIN_PORT=6173 DEMO_PORT=6174 BACKEND_PORT=9080 POSTGRES_PORT=6433 docker compose -p ff-qa up -d --build
+(cd qa && node run.mjs --reset)    # or name cases: node run.mjs ADM-RULE-04
+(cd qa && node make-video.mjs && node report.mjs)   # results/qa-run.mp4 and results/REPORT.md
 ```
 
 ## Design principles (follow them)
@@ -72,16 +80,21 @@ npm --prefix demo run dev          # demo with hot reload
 - Browser checks: trust the DOM (`read_page`, `javascript_tool`) over screenshots. When the browser pane is hidden, screenshots can be stale frames.
 - `/api/evaluate` is public by design (SDK keys ship to browsers): it must never return rules or targeting data. `EvaluateApiTest.responseContainsResultsOnlyNeverRules` guards this.
 - Treat the flag service as fallible: time out, render with everything OFF, and say so.
+- The storefront has no theme toggle on purpose: its theme is the `dark-mode` flag (it sets `data-theme` on `.page`). Keep the `data-flag` attributes on flag-driven blocks and debug rows.
+- `qa/run.mjs` finds elements by role and accessible name (e.g. "Save prod rules", "Rule 1 user IDs", "<flag> in <env>"), as a user would. If you rename a label or button, update the runner and re-run the affected cases.
 
 ## Data
 
 - Fictional seed data only (`acme`, `u_102`, …). No real company or personal data.
 - The brief PDF stays out of the repo (`*.pdf` is git-ignored).
+- **The repo is public.** Never commit a real secret: no `ffk_…` API tokens, `.env` files (git-ignored), personal paths or emails. The seeded logins, SDK keys (`dev-sdk-key` / `prod-sdk-key`) and Postgres password are fictional local defaults, labelled as such in the README; keep it that way. QA artefacts must blur tokens (`MASK_CSS`) and store relative paths only.
 
 ## Workflow
 
-- Work one phase at a time from `docs/plan.md`. A phase is either finished or not started.
-- At the end of a phase, run `./test.sh` until it's green, then commit with a `feat:` / `fix:` / `test:` / `docs:` / `chore:` prefix.
+- Phases 0–6 of `docs/plan.md` are done, and later additions are recorded there under "Added after the plan". Anything that changes the architecture, data model, API or roles goes into the plan first.
+- Before committing, run `./test.sh` until it's green, then commit with a `feat:` / `fix:` / `test:` / `docs:` / `chore:` prefix. For UI changes, also re-run the affected QA cases (`qa/run.mjs <ID>`).
+- Push to GitHub only when asked; never force-push `main` without asking.
+- Keep README (test counts, features, layout) and this file in step with the code when something user-visible changes.
 - When you make an assumption, add it to README → Assumptions. When an agent goes wrong and needs correcting, note it in `docs/ai-log.md`.
 
 ## Stop and ask before
@@ -90,4 +103,4 @@ npm --prefix demo run dev          # demo with hot reload
 - adding an engine dependency
 - changing the API shape or the role matrix
 - editing a committed migration
-- adding scope beyond the current phase
+- adding scope beyond what was asked
