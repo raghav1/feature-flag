@@ -19,8 +19,7 @@ class CustomRuleTest {
     record CountryIn(Set<String> countries) implements Rule {
         @Override
         public boolean matches(String flagKey, EvaluationContext context) {
-            String country = context.attribute("country");
-            return country != null && countries.contains(country);
+            return context.attribute("country").map(countries::contains).orElse(false);
         }
 
         @Override
@@ -36,7 +35,7 @@ class CustomRuleTest {
     void customRuleReadsAnAttributeTheEngineHasNeverHeardOf() {
         var result = evaluator.evaluate(flag, user("u_1", "country", "NZ"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(true, Reason.RULE_MATCH, 0));
+        assertThat(result).isEqualTo(EvaluationResult.ruleMatch(true, 0));
     }
 
     @Test
@@ -51,6 +50,6 @@ class CustomRuleTest {
                 List.of(new UserIdIn(Set.of("u_102"), false), new CountryIn(Set.of("NZ"))), false);
         var context = new EvaluationContext("u_102", Map.of("country", "NZ", "customer", "acme"));
 
-        assertThat(evaluator.evaluate(mixed, context)).isEqualTo(new EvaluationResult(false, Reason.RULE_MATCH, 0));
+        assertThat(evaluator.evaluate(mixed, context)).isEqualTo(EvaluationResult.ruleMatch(false, 0));
     }
 }

@@ -17,6 +17,6 @@ public record UserIdIn(Set<String> userIds, boolean serve) implements Rule {
 
     @Override
     public boolean matches(String flagKey, EvaluationContext context) {
-        return context.userId() != null && userIds.contains(context.userId());
+        return context.userId().map(userIds::contains).orElse(false);
     }
 }

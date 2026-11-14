@@ -55,3 +55,12 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
 - Is the "missing token → 403" check in AuthApiTest still meaningful after the swap? Yes: it doesn't use `csrf()`, so the wrapper passes straight through to the real repository, finds no token and rejects. `CsrfRoundTripTest` also checks missing and forged tokens over real HTTP.
 - Production isn't affected; this only happens under spring-security-test.
 - Recorded in CLAUDE.md so later tests don't trip over it.
+
+## Nulls normalised at the boundary
+
+- **Prompt:** the null crash showing up two or three times means we're fixing symptoms. Normalise nulls once at the API boundary so services never see them.
+- **Where nulls came from:** `envKey = null` meaning "flag-level action" in `AccessPolicy`; `EvaluationContext.attribute()` returning null to rule authors; nullable `envKey`/`before`/`after` in audit entries; nullable audit query params; `Integer matchedRuleIndex` being null for most results; and a missing `description` on create, handled by a ternary in the controller.
+- **Fixes:**
+  - Engine: `EvaluationContext` is now a final class with `Optional<String> userId()` / `attribute(name)`, and blank user IDs mean anonymous. `EvaluationResult` uses `OptionalInt` with named factories. A rule can't be handed a null any more, so the `contains(null)` trap can't come back.
+  - Backend: `AccessPolicy` is split into `require(user, FlagAction)` and `requireEnvironmentChange(user, envKey)`, which rejects null. The editor case stays an exhaustive switch so a future action isn't allowed by default (I briefly wrote `action != DELETE_FLAG` and reverted it for that reason). `AuditEntry` uses `Optional` fields with named factories. `CreateFlagRequest` normalises its description in its compact constructor. Audit query params are `Optional`, with blank meaning absent.
+- New tests: blank and null user IDs are anonymous; absent attributes are empty; null env is a programming error (NPE), not a denial; null description → `""`; `?flag=` (blank) means no filter.

@@ -16,6 +16,6 @@ public final class Contexts {
     }
 
     public static EvaluationContext anonymous() {
-        return new EvaluationContext(null, Map.of());
+        return EvaluationContext.anonymous();
     }
 }

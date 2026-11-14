@@ -27,7 +27,7 @@ class EvaluatorTest {
     void disabledFlagIsOffEvenWhenARuleWouldMatch() {
         var result = evaluator.evaluate(flag(false, false, new UserIdIn(Set.of("u_102"))), user("u_102"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(false, Reason.FLAG_OFF, null));
+        assertThat(result).isEqualTo(EvaluationResult.off());
     }
 
     @Test
@@ -42,7 +42,7 @@ class EvaluatorTest {
     void matchingRuleServesItsValueAndReportsItsIndex() {
         var result = evaluator.evaluate(flag(true, false, new UserIdIn(Set.of("u_102"))), user("u_102"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(true, Reason.RULE_MATCH, 0));
+        assertThat(result).isEqualTo(EvaluationResult.ruleMatch(true, 0));
     }
 
     @Test
@@ -54,7 +54,7 @@ class EvaluatorTest {
 
         var result = evaluator.evaluate(flag, user("u_207", "customer", "acme"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(false, Reason.RULE_MATCH, 0));
+        assertThat(result).isEqualTo(EvaluationResult.ruleMatch(false, 0));
     }
 
     @Test
@@ -65,7 +65,7 @@ class EvaluatorTest {
 
         var result = evaluator.evaluate(flag, user("u_207", "customer", "acme"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(true, Reason.RULE_MATCH, 1));
+        assertThat(result).isEqualTo(EvaluationResult.ruleMatch(true, 1));
     }
 
     @Test
@@ -105,7 +105,7 @@ class EvaluatorTest {
     void noRulesServesOtherwise(boolean otherwise) {
         var result = evaluator.evaluate(flag(true, otherwise), user("u_1"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(otherwise, Reason.OTHERWISE, null));
+        assertThat(result).isEqualTo(EvaluationResult.otherwise(otherwise));
     }
 
     @ParameterizedTest
@@ -115,7 +115,7 @@ class EvaluatorTest {
 
         var result = evaluator.evaluate(flag, user("u_999"));
 
-        assertThat(result).isEqualTo(new EvaluationResult(otherwise, Reason.OTHERWISE, null));
+        assertThat(result).isEqualTo(EvaluationResult.otherwise(otherwise));
     }
 
     @Test
@@ -124,7 +124,7 @@ class EvaluatorTest {
 
         var result = evaluator.evaluate(flag, anonymous());
 
-        assertThat(result).isEqualTo(new EvaluationResult(false, Reason.OTHERWISE, null));
+        assertThat(result).isEqualTo(EvaluationResult.otherwise(false));
     }
 
     @Test

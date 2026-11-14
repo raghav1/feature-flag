@@ -49,7 +49,7 @@ npm --prefix demo run dev          # demo with hot reload
 - Every mutation writes its audit row in the same transaction, with a plain-words summary ("rollout 5% → 10%") and the logged-in user as actor.
 - Flyway migrations are append-only once committed.
 - Errors are `ProblemDetail` (`application/problem+json`).
-- Null-check before `Set.of(...)`/`List.of(...).contains(x)`: immutable collections throw NPE on null. This has bitten us three times.
+- **Nulls stop at the boundary.** Request records normalise in their compact constructors (absent → `""`, empty list, or `Optional`), query params arrive as `Optional` with blank treated as absent, and the engine's `EvaluationContext` exposes `Optional` accessors. Services, rules and repositories never receive null; internal APIs `requireNonNull` instead of accepting "null means none". (We hit `Set.of(...).contains(null)` three times before fixing the cause.)
 - Don't assert on the real `XSRF-TOKEN` cookie in MockMvc tests: `.with(csrf())` changes the shared filter (see docs/ai-log.md, known issue). Real CSRF behaviour lives in `CsrfRoundTripTest`.
 - New HTTP behaviour needs an `ApiTest` (real Postgres via Testcontainers). Anything about roles also needs a row in `RoleMatrixApiTest`.
 

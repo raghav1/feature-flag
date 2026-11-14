@@ -1,7 +1,7 @@
 package dev.flags.backend.flags;
 
 import dev.flags.backend.access.AccessPolicy;
-import dev.flags.backend.access.Action;
+import dev.flags.backend.access.FlagAction;
 import dev.flags.backend.audit.AuditAction;
 import dev.flags.backend.audit.AuditDiff;
 import dev.flags.backend.audit.AuditEntry;
@@ -53,27 +53,26 @@ public class FlagService {
     @Transactional
     public Flag create(String key, String description) {
         AppUser user = currentUser.get();
-        accessPolicy.require(user, Action.CREATE_FLAG, null);
+        accessPolicy.require(user, FlagAction.CREATE_FLAG);
         if (flags.existsByKey(key)) {
             throw new ConflictException("A flag with key '" + key + "' already exists.");
         }
         Flag created = flags.insert(key, description);
-        auditLog.record(new AuditEntry(
-                user.username(), key, null, AuditAction.FLAG_CREATED, "created flag", null, FlagSnapshot.of(created)));
+        auditLog.record(AuditEntry.created(user.username(), key, FlagSnapshot.of(created)));
         return created;
     }
 
     @Transactional
     public Flag updateDescription(String key, String description) {
         AppUser user = currentUser.get();
-        accessPolicy.require(user, Action.EDIT_DESCRIPTION, null);
+        accessPolicy.require(user, FlagAction.EDIT_DESCRIPTION);
         Flag before = find(key);
         if (before.description().equals(description)) {
             return before;
         }
         flags.updateDescription(before.id(), description);
         Flag after = find(key);
-        auditLog.record(new AuditEntry(user.username(), key, null, AuditAction.FLAG_UPDATED,
+        auditLog.record(AuditEntry.flagChanged(user.username(), key,
                 AuditDiff.descriptionChanged(before.description(), description),
                 FlagSnapshot.of(before), FlagSnapshot.of(after)));
         return after;
@@ -82,11 +81,10 @@ public class FlagService {
     @Transactional
     public void delete(String key) {
         AppUser user = currentUser.get();
-        accessPolicy.require(user, Action.DELETE_FLAG, null);
+        accessPolicy.require(user, FlagAction.DELETE_FLAG);
         Flag flag = find(key);
         flags.delete(flag.id());
-        auditLog.record(new AuditEntry(
-                user.username(), key, null, AuditAction.FLAG_DELETED, "deleted flag", flag, null));
+        auditLog.record(AuditEntry.deleted(user.username(), key, flag));
     }
 
     @Transactional
@@ -107,7 +105,7 @@ public class FlagService {
             UnaryOperator<EnvironmentSnapshot> edit, BiFunction<EnvironmentSnapshot, EnvironmentSnapshot, String> summary) {
         AppUser user = currentUser.get();
         environments.requireExists(envKey);
-        accessPolicy.require(user, Action.CHANGE_ENVIRONMENT, envKey);
+        accessPolicy.requireEnvironmentChange(user, envKey);
 
         Flag flag = find(key);
         FlagEnvironment current = flag.environment(envKey)
@@ -123,7 +121,8 @@ public class FlagService {
         if (!flags.updateEnvironment(flag.id(), envKey, after, version)) {
             throw staleVersion(key, envKey, -1, version); // lost a race with a concurrent edit
         }
-        auditLog.record(new AuditEntry(user.username(), key, envKey, action, summary.apply(before, after), before, after));
+        auditLog.record(AuditEntry.environmentChanged(
+                user.username(), key, envKey, action, summary.apply(before, after), before, after));
         return find(key).environment(envKey).orElseThrow();
     }
 

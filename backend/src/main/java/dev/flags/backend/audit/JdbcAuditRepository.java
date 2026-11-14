@@ -3,6 +3,7 @@ package dev.flags.backend.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -25,40 +26,37 @@ class JdbcAuditRepository implements AuditRepository {
                         """)
                 .param("actor", e.actor())
                 .param("flagKey", e.flagKey())
-                .param("envKey", e.envKey())
+                .param("envKey", e.envKey().orElse(null))
                 .param("action", e.action().name())
                 .param("summary", e.summary())
-                .param("before", toJson(e.before()))
-                .param("after", toJson(e.after()))
+                .param("before", e.before().map(this::toJson).orElse(null))
+                .param("after", e.after().map(this::toJson).orElse(null))
                 .update();
     }
 
     @Override
-    public List<AuditEvent> find(String flagKey, String envKey, int limit) {
+    public List<AuditEvent> find(Optional<String> flagKey, Optional<String> envKey, int limit) {
         return jdbc.sql("""
                         SELECT id, at, actor, flag_key, env_key, action, summary FROM audit_event
                         WHERE (CAST(:flagKey AS text) IS NULL OR flag_key = :flagKey)
                           AND (CAST(:envKey AS text) IS NULL OR env_key = :envKey)
                         ORDER BY id DESC LIMIT :limit
                         """)
-                .param("flagKey", flagKey)
-                .param("envKey", envKey)
+                .param("flagKey", flagKey.orElse(null))
+                .param("envKey", envKey.orElse(null))
                 .param("limit", limit)
                 .query((rs, row) -> new AuditEvent(
                         rs.getLong("id"),
                         rs.getTimestamp("at").toInstant(),
                         rs.getString("actor"),
                         rs.getString("flag_key"),
-                        rs.getString("env_key"),
+                        Optional.ofNullable(rs.getString("env_key")),
                         AuditAction.valueOf(rs.getString("action")),
                         rs.getString("summary")))
                 .list();
     }
 
     private String toJson(Object value) {
-        if (value == null) {
-            return null;
-        }
         try {
             return json.writeValueAsString(value);
         } catch (JsonProcessingException ex) {

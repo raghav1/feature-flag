@@ -64,6 +64,26 @@ class FlagApiTest extends ApiTest {
     }
 
     @Test
+    void missingDescriptionBecomesEmptyAtTheBoundary() throws Exception {
+        String key = uniqueKey("nodesc");
+
+        mvc.perform(post("/api/flags").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"key\":\"%s\",\"description\":null}".formatted(key)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.description").value(""));
+    }
+
+    @Test
+    void blankAuditFilterMeansNoFilter() throws Exception {
+        String key = createFlag(admin, uniqueKey("blankfilter"));
+
+        JsonNode all = readJson(mvc.perform(get("/api/audit").param("flag", "").param("env", " ").param("limit", "200").session(admin)));
+
+        assertThat(all.findValuesAsText("flagKey")).contains(key);
+        assertThat(audit(admin, key).path(0).path("envKey").isNull()).as("flag-level entry has null envKey in JSON").isTrue();
+    }
+
+    @Test
     void duplicateKeyIs409() throws Exception {
         mvc.perform(post("/api/flags").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"key\":\"new-dashboard\"}"))

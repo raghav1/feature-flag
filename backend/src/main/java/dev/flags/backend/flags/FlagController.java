@@ -32,7 +32,13 @@ class FlagController {
     record CreateFlagRequest(
             @NotBlank @Pattern(regexp = KEY_PATTERN, message = "must be lowercase letters, digits and dashes, max 63 characters")
                     String key,
-            @Size(max = 500) String description) {}
+            @Size(max = 500) String description) {
+
+        /** Description is optional on create; absent means empty. */
+        CreateFlagRequest {
+            description = description == null ? "" : description;
+        }
+    }
 
     record UpdateFlagRequest(@NotNull @Size(max = 500) String description) {}
 
@@ -76,7 +82,7 @@ class FlagController {
 
     @PostMapping
     ResponseEntity<FlagView> create(@Valid @RequestBody CreateFlagRequest body) {
-        Flag flag = flags.create(body.key(), body.description() == null ? "" : body.description());
+        Flag flag = flags.create(body.key(), body.description());
         return ResponseEntity.created(URI.create("/api/flags/" + flag.key())).body(FlagView.of(flag));
     }
 

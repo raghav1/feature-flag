@@ -11,15 +11,15 @@ public final class Evaluator {
         Objects.requireNonNull(context, "context must not be null");
 
         if (!flag.enabled()) {
-            return new EvaluationResult(false, Reason.FLAG_OFF, null);
+            return EvaluationResult.off();
         }
         List<Rule> rules = flag.rules();
         for (int i = 0; i < rules.size(); i++) {
             Rule rule = rules.get(i);
             if (rule.matches(flag.key(), context)) {
-                return new EvaluationResult(rule.serve(), Reason.RULE_MATCH, i);
+                return EvaluationResult.ruleMatch(rule.serve(), i);
             }
         }
-        return new EvaluationResult(flag.otherwise(), Reason.OTHERWISE, null);
+        return EvaluationResult.otherwise(flag.otherwise());
     }
 }

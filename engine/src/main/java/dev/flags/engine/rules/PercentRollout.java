@@ -22,10 +22,8 @@ public record PercentRollout(int percent, boolean serve) implements Rule {
 
     @Override
     public boolean matches(String flagKey, EvaluationContext context) {
-        String userId = context.userId();
-        if (userId == null || userId.isBlank()) {
-            return false;
-        }
-        return Bucketing.bucket(flagKey, userId) < percent * (Bucketing.BUCKETS / 100);
+        return context.userId()
+                .map(userId -> Bucketing.bucket(flagKey, userId) < percent * (Bucketing.BUCKETS / 100))
+                .orElse(false);
     }
 }

@@ -19,7 +19,6 @@ public record CustomerIdIn(Set<String> customerIds, boolean serve) implements Ru
 
     @Override
     public boolean matches(String flagKey, EvaluationContext context) {
-        String customer = context.attribute(ATTRIBUTE);
-        return customer != null && customerIds.contains(customer);
+        return context.attribute(ATTRIBUTE).map(customerIds::contains).orElse(false);
     }
 }
