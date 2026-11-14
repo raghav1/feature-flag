@@ -11,6 +11,7 @@ Internal feature-flag service: admin dashboard, Java backend on PostgreSQL, and 
 | `admin/` | React + TS + Vite admin dashboard (port 5173). |
 | `demo/` | React + TS + Vite mock storefront (port 5174). Reads flags only through the SDK. |
 | `sdk/` | TypeScript client SDK (no runtime deps). The demo depends on it via `file:../sdk`. |
+| `backend/.../mcp`, `apikeys` | The MCP server at `/mcp` (tools in `AdminTools`) and agent API keys. |
 | `docs/` | `plan.md` (design), `ai-log.md` (how the agents were directed). |
 
 ## Commands
@@ -50,6 +51,8 @@ npm --prefix demo run dev          # demo with hot reload
 - Every mutation writes its audit row in the same transaction, with a plain-words summary ("rollout 5% → 10%") and the logged-in user as actor.
 - Flyway migrations are append-only once committed.
 - Errors are `ProblemDetail` (`application/problem+json`).
+- **MCP tools call the same services as the REST controllers and never re-implement logic.** A new dashboard capability needs a tool too (`McpApiTest.everyDashboardActionIsATool` lists them). Tool results use the shared views (`FlagView`), so agents and the dashboard see the same JSON.
+- API keys authenticate only on `/mcp` (`McpSecurityConfig`); sessions only on `/api`. A key is an `AppUser` with `viaApiKey = true` and a fixed role; keys never manage keys.
 - Long-lived responses (the SSE stream) must be closed on shutdown (`ChangeStream.closeAll`); otherwise graceful shutdown waits until Docker SIGKILLs the process.
 - Mutations that can change evaluation results publish `FlagChanged`; listeners act after commit only.
 - **Nulls stop at the boundary.** Request records normalise in their compact constructors (absent → `""`, empty list, or `Optional`), query params arrive as `Optional` with blank treated as absent, and the engine's `EvaluationContext` exposes `Optional` accessors. Services, rules and repositories never receive null; internal APIs `requireNonNull` instead of accepting "null means none". (We hit `Set.of(...).contains(null)` three times before fixing the cause.)

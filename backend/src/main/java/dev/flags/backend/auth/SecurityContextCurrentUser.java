@@ -24,6 +24,7 @@ class SecurityContextCurrentUser implements CurrentUser {
                 .map(a -> Role.valueOf(a.substring("ROLE_".length())))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("user " + auth.getName() + " has no role"));
-        return new AppUser(auth.getName(), role);
+        boolean viaApiKey = auth.getAuthorities().stream().anyMatch(a -> AppUser.API_KEY_AUTHORITY.equals(a.getAuthority()));
+        return new AppUser(auth.getName(), role, viaApiKey);
     }
 }

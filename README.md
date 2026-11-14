@@ -56,6 +56,7 @@ Beyond them:
 
 - **Live updates** (stretch): the demo listens to a server-sent event stream and refetches when a flag changes, so admin changes show up without a refresh. It reconnects by itself after outages and catches up on anything it missed.
 
+- **MCP server for agents**: any MCP client (Claude Code, Claude Desktop, …) can read and change everything the dashboard can, with an API key that acts as one role. See [Agents (MCP)](#agents-mcp).
 - **TypeScript client SDK** (stretch): `client.isEnabled("new-dashboard", user)` from an in-memory cache, kept fresh by polling and the live stream. It **keeps working from cache during a backend outage**, even across a page reload. The demo uses it. See [SDK](#typescript-sdk).
 
 ## Architecture
@@ -71,7 +72,7 @@ Beyond them:
 | Module | What |
 |---|---|
 | `engine/` | The evaluation engine. **Plain Java 21, no dependencies** (a Maven enforcer rule fails the build if one is added), so it can be tested hard. |
-| `backend/` | Spring Boot 3: REST API, session login with CSRF, `AccessPolicy` (the one place permissions are decided), audit, Flyway migrations. |
+| `backend/` | Spring Boot 3: REST API, session login with CSRF, `AccessPolicy` (the one place permissions are decided), audit, Flyway migrations, and the MCP server at `/mcp` for agents. |
 | `admin/` | Admin dashboard, React + TypeScript + Vite, served by nginx. |
 | `demo/` | Demo storefront, React + TypeScript + Vite, served by nginx. Reads flags through the SDK. |
 | `sdk/` | TypeScript client SDK: cached `isEnabled`, polling, live updates, outage fallback. |
@@ -111,7 +112,7 @@ All endpoints need a login session except `POST /api/auth/login` and `POST /api/
 |---|---|---|---|
 | POST | `/api/auth/login` | anyone | `{username, password}` → same as `/me` |
 | POST | `/api/auth/logout` | logged in | 204 |
-| GET | `/api/auth/me` | logged in | `{username, role, can: {createFlag, editDescription, deleteFlag, changeEnvironments}}` |
+| GET | `/api/auth/me` | logged in | `{username, role, can: {createFlag, editDescription, deleteFlag, changeEnvironments, manageApiKeys}}` |
 | GET | `/api/environments` | logged in | `[{key, name}]` |
 | GET | `/api/flags` | logged in | flags with per-env `enabled`, `otherwise`, `rules`, `version` |
 | GET | `/api/flags/{key}` | logged in | one flag |
@@ -121,8 +122,16 @@ All endpoints need a login session except `POST /api/auth/login` and `POST /api/
 | PUT | `/api/flags/{key}/envs/{env}/enabled` | admin; editor for dev | `{enabled, version}` |
 | PUT | `/api/flags/{key}/envs/{env}/rules` | admin; editor for dev | `{rules, otherwise, version}` |
 | GET | `/api/audit?flag=&env=&limit=` | logged in | newest first; limit 1–200, default 50 |
+| GET | `/api/contexts?kind=user\|customer&query=&limit=` | logged in | IDs the service has evaluated, most recent first (for suggestions) |
+| GET | `/api/contexts/unseen?kind=&value=…` | logged in | which of the given IDs were never evaluated (for warnings) |
+| GET | `/api/keys` | admin | agent API keys (never the token) |
+| POST | `/api/keys` | admin | `{name, role, expiresInDays?}` → 201 `{key, token}`; the token is shown only here |
+| DELETE | `/api/keys/{id}` | admin | revoke; takes effect on the next request |
+| POST | `/mcp` | API key (`Authorization: Bearer ffk_…`) | MCP over Streamable HTTP; see [Agents (MCP)](#agents-mcp) |
 | POST | `/api/evaluate` | `X-SDK-Key` header | `{context: {userId?, attributes?}, flags?}` → results only |
 | GET | `/api/evaluate/stream?sdkKey=` | SDK key (query param or header) | server-sent events: `ready`, then `changed {environment, flagKey}` after each committed change |
+
+Rule user and customer IDs must start with a letter or digit and use only letters, digits and `_ . : @ -` (max 128); anything else is a 400 naming the field, e.g. `rules[0].userIds[1]`. IDs the service has never seen are allowed (you may target someone before their first visit).
 
 Rules are an ordered list; `serve` defaults to `true`:
 
@@ -191,20 +200,51 @@ They're fictional, and each takes a different path through the seeded prod rules
 | Eli · u_412 | zenith | OFF (outside the 10%) | OFF |
 | Anonymous | – | OFF (a rollout needs a user ID) | OFF |
 
+## Agents (MCP)
+
+The backend is also an [MCP](https://modelcontextprotocol.io) server, so an AI agent can do everything the admin dashboard can: read flags, rules and history, and create, toggle, re-target and delete flags.
+
+**Connect.** An admin creates a key under **API keys** in the dashboard. The token (`ffk_…`) is shown once, along with ready-to-paste config. For Claude Code:
+
+```bash
+claude mcp add --transport http feature-flags http://localhost:5173/mcp --header "Authorization: Bearer ffk_..."
+```
+
+For other clients (Claude Desktop, Cursor, …) it's an HTTP MCP server at `http://localhost:5173/mcp` with that `Authorization` header. The dashboard's address proxies `/mcp` to the backend; `http://localhost:8080/mcp` works too.
+
+**Tools** (12), with the same rules, messages and JSON shapes as the dashboard:
+
+| Read | Change |
+|---|---|
+| `whoami`: the key's identity, role and exactly what it may change | `create_flag` |
+| `list_environments`, `list_flags`, `get_flag` | `update_flag_description` |
+| `get_audit_log`: plain-words history, filterable | `set_flag_enabled`: needs the env's `version` |
+| `suggest_ids`: user/customer IDs the service has seen | `set_flag_rules`: replaces the ordered rules + Otherwise; needs `version` |
+| `find_unseen_ids`: likely typos | `delete_flag`: `confirm_key` must repeat the key |
+
+Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, so clients can ask before running them. A stale `version` is a conflict, so an agent can't overwrite a change it hasn't seen.
+
+**Access model.**
+- **A key acts as one role** (admin, editor or viewer) and can do exactly what a person with that role can. Enforcement is the same `AccessPolicy` as the dashboard, so an editor key can't touch prod, and a viewer key is read-only.
+- **Only admins create and revoke keys.** Keys themselves can never manage keys, even an admin key, so a leaked key can't mint itself a replacement.
+- **Keys work only on `/mcp`,** and dashboard sessions don't work there. No cookies, no CSRF, stateless: every request is authenticated by its own key.
+- **Every change an agent makes is in the audit log** as `key:<name>`, and the key list shows who created each key and when it was last used.
+- **Storage:** tokens are 256-bit random values, stored only as a SHA-256 hash and shown once. They expire (default 90 days, max 365), and revocation takes effect on the next request.
+
 ## Tests
 
 ```bash
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 267 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 335 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
-| `backend` | 139 |
-| `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules |
-| `admin`, `demo` | 16 | rule-draft parsing, relative times, reason explanations, URL state |
+| `backend` | 205 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules, ID suggestions; **MCP with a real MCP client**: key auth (missing, wrong, revoked, expired, session-vs-key), every tool, the role matrix through tools, a full flag lifecycle driven by an agent |
+| `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
+| `admin`, `demo` | 18 | rule-draft parsing, relative times, reason explanations, URL state, API key status and connection snippets |
 
 No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md).
 
@@ -226,11 +266,14 @@ No end-to-end browser tests (per the brief). Each UI flow was checked by hand in
 14. `/api/evaluate` exposes the matched rule's position and kind (e.g. "rule 3, percent") for debugging, never who is targeted.
 15. When the flag service is unreachable, the demo keeps showing the last known flags (marked stale), from memory or from `localStorage` after a reload. With nothing cached, every flag is OFF (safe default). Either way the page says so.
 16. Live updates may take up to ~30 s to resume after a long outage (reconnect backoff is capped at 30 s), and polling refreshes values every 30 s regardless.
+17. An API key is a fixed role rather than a list of fine-grained scopes, and only admins create keys. Keys never manage keys.
+18. Rule IDs must be well-formed (letters, digits and `_ . : @ -`, max 128), but needn't have been seen before.
 
 ## What's missing, and how I'd build it
 
 - **SDK for servers:** the SDK evaluates on the server per user, which suits browsers (no rules leak). A Node/back-end SDK could instead download the rules with a server-only key and evaluate locally with a port of the engine. That's faster at scale, but it needs a second, secret key type.
 - **Scale:** evaluation reads flags from Postgres on every call, and the change stream lives in one backend instance's memory. With more traffic I'd keep an in-memory snapshot per environment, invalidated on writes, and fan changes out across instances with Postgres `LISTEN/NOTIFY`.
+- **MCP hardening:** OAuth (the MCP spec's authorization flow) so agents get short-lived, user-consented tokens instead of static keys; per-key rate limits; key rotation with an overlap window; optional finer scopes, e.g. a key that can only change one flag.
 - **Production hardening:**
   - real secrets for SDK keys and DB credentials;
   - login rate limiting;

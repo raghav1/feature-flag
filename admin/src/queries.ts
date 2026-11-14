@@ -6,11 +6,13 @@ export const keys = {
   environments: ["environments"] as const,
   flags: ["flags"] as const,
   audit: (flagKey: string) => ["audit", flagKey] as const,
+  keys: ["keys"] as const,
 };
 
 export const meQuery = queryOptions({ queryKey: keys.me, queryFn: api.me, staleTime: Infinity });
 export const environmentsQuery = queryOptions({ queryKey: keys.environments, queryFn: api.environments, staleTime: Infinity });
 export const flagsQuery = queryOptions({ queryKey: keys.flags, queryFn: api.flags });
+export const keysQuery = queryOptions({ queryKey: keys.keys, queryFn: api.keys });
 export const auditQuery = (flagKey: string) => queryOptions({ queryKey: keys.audit(flagKey), queryFn: () => api.audit(flagKey) });
 
 /**

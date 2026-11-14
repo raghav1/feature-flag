@@ -173,3 +173,23 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
   - LIKE wildcards in the query are escaped (tested: `_` doesn't match everything).
 - **Still to do:** the editor's chip input with autocomplete and unseen warnings.
 - **Open, parked:** the test JVM occasionally takes 30 s to exit ("Surefire is going to kill self fork JVM"). It's intermittent, didn't reproduce on a re-run, and no test fails. The production shutdown fix (closing SSE streams) is verified separately.
+
+## MCP server for agents
+
+- **Prompt:** build an MCP server so an agent can do and read everything the admin dashboard can; think about authentication and the scope of a key's access.
+- **Asked before deciding** (it changes the security model and the API): where it lives, how keys are scoped, who mints them. **Chosen:** inside the backend; each key is a fixed role (admin, editor or viewer); only admins create keys. I recommended scopes intersected with the creator's role; you chose fixed roles, which makes a key exactly "a person with that role" to the existing `AccessPolicy`, so the role matrix and its tests already cover agents.
+- **Read the SDK before using it:** the MCP Java SDK is at 2.2.0, past the 0.x API I knew, so I read its sources first. It has a *stateless* servlet transport, which suits per-request bearer auth with no MCP session state to secure. The authenticated identity reaches tool handlers through the transport context, and each call runs as that identity.
+- **Security model:**
+  - separate stateless filter chain for `/mcp` (bearer only, no cookies or CSRF), so keys can't use `/api` and sessions can't use `/mcp`;
+  - 256-bit `ffk_…` tokens, stored as SHA-256 (high-entropy, so no slow hash needed, and the lookup is indexed) and shown once;
+  - expiry 1–365 days, revocation immediate, last-used throttled to once a minute;
+  - audit actor `key:<name>`;
+  - **defence in depth:** even an ADMIN key can't manage keys (`AppUser.viaApiKey`), so a leaked key can't mint itself a replacement.
+- **Caught by testing with a real MCP client** (the SDK's Streamable HTTP client in `McpApiTest`): the SDK's built-in schema validation rejected a bad user ID, but its message listed failures against *every* `oneOf` branch ("must be the constant value 'customers'", "required property 'percent' not found"), which would mislead an agent. I switched it off and let the tools validate with the dashboard's rules and messages; the schemas are still advertised. Then I normalised Hibernate's `rules[0].userIds[1].<list element>` paths to match the REST API exactly.
+- **Mutation check:** I made key lookup ignore `revoked_at`, and `revokedAndExpiredKeysStopWorkingImmediately` failed as it should. Restored.
+- **Checked end to end in the browser:**
+  - admin created an EDITOR key in the new **API keys** page (token shown once, only the prefix listed, a `claude mcp add` snippet pointing at the dashboard's own `/mcp`);
+  - a plain JSON-RPC client using that key through nginx: 12 tools; `whoami` = editor with dev only; prod change refused ("key:agent-check (editor) may not change prod."); dev change and create allowed; delete refused;
+  - history showed `key:agent-check`; "last used" was recorded; after revoking, the next request got 401;
+  - the scratch flag was deleted and the test key revoked afterwards.
+- **Fixed along the way:** a README test table that my phase 6b edit had mangled (the SDK row was spliced into the backend row).

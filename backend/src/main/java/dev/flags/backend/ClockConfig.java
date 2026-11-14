@@ -1,0 +1,15 @@
+package dev.flags.backend;
+
+import java.time.Clock;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/** Injected so time-dependent logic (key expiry) can be tested with a fixed clock. */
+@Configuration
+class ClockConfig {
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+}

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Me } from "./api";
+import { ApiKeysPage } from "./ApiKeysPage";
 import { FlagDetail } from "./FlagDetail";
 import { FlagTable } from "./FlagTable";
 import { NewFlagForm } from "./NewFlagForm";
@@ -12,6 +13,7 @@ export function Dashboard({ me }: { me: Me }) {
   const flags = useQuery(flagsQuery);
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState<"flags" | "keys">("flags");
   const logout = useMutation({
     mutationFn: api.logout,
     onSettled: () => switchSession(queryClient, null),
@@ -23,7 +25,16 @@ export function Dashboard({ me }: { me: Me }) {
     <div className="app">
       <header className="topbar">
         <strong>Feature flags</strong>
-        <span className="muted">Admin dashboard</span>
+        <nav className="tabs nav" aria-label="Sections">
+          <button type="button" className={page === "flags" ? "tab active" : "tab"} onClick={() => setPage("flags")}>
+            Flags
+          </button>
+          {me.can.manageApiKeys && (
+            <button type="button" className={page === "keys" ? "tab active" : "tab"} onClick={() => setPage("keys")}>
+              API keys
+            </button>
+          )}
+        </nav>
         <span className="spacer" />
         <span className="who">
           {me.username} <span className={`role ${me.role.toLowerCase()}`}>{me.role.toLowerCase()}</span>
@@ -33,6 +44,11 @@ export function Dashboard({ me }: { me: Me }) {
         </button>
       </header>
 
+      {page === "keys" && me.can.manageApiKeys ? (
+        <div className="layout single">
+          <ApiKeysPage />
+        </div>
+      ) : (
       <div className="layout">
         <section className="card">
           <div className="section-head">
@@ -85,6 +101,7 @@ export function Dashboard({ me }: { me: Me }) {
           <section className="card placeholder muted">Select a flag to see its rules and history.</section>
         )}
       </div>
+      )}
     </div>
   );
 }

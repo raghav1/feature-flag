@@ -13,13 +13,23 @@ public interface AccessPolicy {
     /** May this user toggle the flag or edit its rules in {@code envKey}? */
     boolean allowsEnvironmentChange(AppUser user, String envKey);
 
+    /** May this user create, list and revoke agent API keys? */
+    boolean allowsKeyManagement(AppUser user);
+
+    default void requireKeyManagement(AppUser user) {
+        if (!allowsKeyManagement(user)) {
+            throw denied(user, "manage API keys");
+        }
+    }
+
     /** Everything this user may change, derived from the two checks above so it can't disagree with them. */
     default Permissions permissionsFor(AppUser user, List<String> envKeys) {
         return new Permissions(
                 allows(user, FlagAction.CREATE_FLAG),
                 allows(user, FlagAction.EDIT_DESCRIPTION),
                 allows(user, FlagAction.DELETE_FLAG),
-                envKeys.stream().filter(env -> allowsEnvironmentChange(user, env)).toList());
+                envKeys.stream().filter(env -> allowsEnvironmentChange(user, env)).toList(),
+                allowsKeyManagement(user));
     }
 
     default void require(AppUser user, FlagAction action) {

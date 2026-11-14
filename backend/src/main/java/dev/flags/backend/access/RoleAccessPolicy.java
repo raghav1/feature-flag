@@ -1,13 +1,14 @@
 package dev.flags.backend.access;
 
 import dev.flags.backend.auth.AppUser;
+import dev.flags.backend.auth.Role;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * ADMIN: everything. EDITOR: create flags, edit descriptions, change dev only; never delete (that wipes prod
- * too). VIEWER: read-only.
+ * ADMIN: everything, including agent API keys. EDITOR: create flags, edit descriptions, change dev only; never
+ * delete (that wipes prod too). VIEWER: read-only. An API key acts as exactly one of these roles.
  */
 @Component
 class RoleAccessPolicy implements AccessPolicy {
@@ -35,5 +36,11 @@ class RoleAccessPolicy implements AccessPolicy {
             case EDITOR -> EDITOR_ENVIRONMENTS.contains(envKey);
             case VIEWER -> false;
         };
+    }
+
+    @Override
+    public boolean allowsKeyManagement(AppUser user) {
+        // Keys never mint or revoke keys, even an ADMIN key: a leaked key must not be able to entrench itself.
+        return user.role() == Role.ADMIN && !user.viaApiKey();
     }
 }

@@ -8,10 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.net.URI;
-import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,10 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/flags")
 class FlagController {
 
-    static final String KEY_PATTERN = "^[a-z0-9][a-z0-9-]{0,62}$";
-
     record CreateFlagRequest(
-            @NotBlank @Pattern(regexp = KEY_PATTERN, message = "must be lowercase letters, digits and dashes, max 63 characters")
+            @NotBlank @Pattern(regexp = FlagKeys.PATTERN, message = FlagKeys.MESSAGE)
                     String key,
             @Size(max = 500) String description) {
 
@@ -48,21 +43,6 @@ class FlagController {
             @NotNull @Size(max = 50) List<@NotNull @Valid RuleSpec> rules,
             @NotNull Boolean otherwise,
             @NotNull @Min(0) Integer version) {}
-
-    record EnvironmentView(boolean enabled, boolean otherwise, List<RuleSpec> rules, int version, Instant updatedAt) {
-        static EnvironmentView of(FlagEnvironment e) {
-            return new EnvironmentView(e.enabled(), e.otherwise(), e.rules(), e.version(), e.updatedAt());
-        }
-    }
-
-    record FlagView(String key, String description, Instant createdAt, Instant updatedAt,
-            Map<String, EnvironmentView> environments) {
-        static FlagView of(Flag flag) {
-            Map<String, EnvironmentView> envs = new LinkedHashMap<>();
-            flag.environments().forEach(e -> envs.put(e.envKey(), EnvironmentView.of(e)));
-            return new FlagView(flag.key(), flag.description(), flag.createdAt(), flag.updatedAt(), envs);
-        }
-    }
 
     private final FlagService flags;
 
@@ -98,12 +78,12 @@ class FlagController {
     }
 
     @PutMapping("/{key}/envs/{env}/enabled")
-    EnvironmentView setEnabled(@PathVariable String key, @PathVariable String env, @Valid @RequestBody SetEnabledRequest body) {
-        return EnvironmentView.of(flags.setEnabled(key, env, body.enabled(), body.version()));
+    FlagView.EnvironmentView setEnabled(@PathVariable String key, @PathVariable String env, @Valid @RequestBody SetEnabledRequest body) {
+        return FlagView.EnvironmentView.of(flags.setEnabled(key, env, body.enabled(), body.version()));
     }
 
     @PutMapping("/{key}/envs/{env}/rules")
-    EnvironmentView setRules(@PathVariable String key, @PathVariable String env, @Valid @RequestBody SetRulesRequest body) {
-        return EnvironmentView.of(flags.setRules(key, env, body.rules(), body.otherwise(), body.version()));
+    FlagView.EnvironmentView setRules(@PathVariable String key, @PathVariable String env, @Valid @RequestBody SetRulesRequest body) {
+        return FlagView.EnvironmentView.of(flags.setRules(key, env, body.rules(), body.otherwise(), body.version()));
     }
 }

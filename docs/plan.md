@@ -170,3 +170,10 @@ These are also recorded in the README under Assumptions.
 7. Editors can create flags and edit descriptions but not delete flags, because a delete also wipes prod config.
 8. Demo users are a static fictional list in the demo app, not DB rows.
 9. Environments are a fixed dev/prod pair, with no create-env API. The schema allows more.
+
+## Added after the plan: agents (MCP) and API keys
+
+- `/mcp`: an MCP server (official Java SDK, stateless Streamable HTTP) in the backend. Twelve tools mirror the dashboard: whoami, list_environments, list_flags, get_flag, get_audit_log, suggest_ids, find_unseen_ids, create_flag, update_flag_description, delete_flag, set_flag_enabled, set_flag_rules.
+- `api_key` table: name, role, display prefix, SHA-256 of the token, created_by, expires_at, last_used_at, revoked_at/by. Admin-only management at `/api/keys`.
+- Decisions (asked, not assumed): MCP lives inside the backend; a key is a fixed role (not fine-grained scopes); only admins create keys.
+- `/api/contexts` (seen user/customer IDs) feeds both the editor's suggestions and the `suggest_ids`/`find_unseen_ids` tools.

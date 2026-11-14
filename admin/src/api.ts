@@ -8,6 +8,7 @@ export interface Permissions {
   editDescription: boolean;
   deleteFlag: boolean;
   changeEnvironments: string[];
+  manageApiKeys: boolean;
 }
 
 export interface Me {
@@ -50,6 +51,25 @@ export interface AuditEvent {
   envKey: string | null;
   action: string;
   summary: string;
+}
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  role: Role;
+  /** First characters of the token, to recognise it. The token itself is only shown once, at creation. */
+  prefix: string;
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  revokedBy: string | null;
+}
+
+export interface CreatedKey {
+  key: ApiKey;
+  token: string;
 }
 
 export interface FieldError {
@@ -125,6 +145,10 @@ export const api = {
       otherwise,
       version,
     }),
+  keys: () => request<ApiKey[]>("GET", "/api/keys"),
+  createKey: (name: string, role: Role, expiresInDays: number) =>
+    request<CreatedKey>("POST", "/api/keys", { name, role, expiresInDays }),
+  revokeKey: (id: number) => request<void>("DELETE", `/api/keys/${id}`),
   audit: (flagKey: string) =>
     request<AuditEvent[]>("GET", `/api/audit?${new URLSearchParams({ flag: flagKey, limit: "20" }).toString()}`),
 };

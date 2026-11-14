@@ -51,6 +51,10 @@ class PermissionsMatchEnforcementApiTest extends ApiTest {
         String doomed = createFlag(admin, uniqueKey("can-delete"));
         assertThat(status(delete("/api/flags/" + doomed).session(session).with(csrf())))
                 .isEqualTo(can.path("deleteFlag").asBoolean() ? 204 : 403);
+
+        assertThat(status(post("/api/keys").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"%s\",\"role\":\"VIEWER\"}".formatted(uniqueKey("can-key")))))
+                .isEqualTo(can.path("manageApiKeys").asBoolean() ? 201 : 403);
     }
 
     private int status(org.springframework.test.web.servlet.RequestBuilder request) throws Exception {
