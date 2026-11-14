@@ -8,6 +8,7 @@ import dev.flags.backend.audit.AuditEntry;
 import dev.flags.backend.audit.AuditLog;
 import dev.flags.backend.auth.AppUser;
 import dev.flags.backend.auth.CurrentUser;
+import dev.flags.backend.environments.Environment;
 import dev.flags.backend.environments.EnvironmentService;
 import dev.flags.backend.error.ConflictException;
 import dev.flags.backend.error.NotFoundException;
@@ -15,6 +16,7 @@ import dev.flags.backend.flags.rules.RuleSpec;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,14 +32,16 @@ public class FlagService {
     private final AccessPolicy accessPolicy;
     private final CurrentUser currentUser;
     private final AuditLog auditLog;
+    private final ApplicationEventPublisher events;
 
     FlagService(FlagRepository flags, EnvironmentService environments, AccessPolicy accessPolicy,
-            CurrentUser currentUser, AuditLog auditLog) {
+            CurrentUser currentUser, AuditLog auditLog, ApplicationEventPublisher events) {
         this.flags = flags;
         this.environments = environments;
         this.accessPolicy = accessPolicy;
         this.currentUser = currentUser;
         this.auditLog = auditLog;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +63,7 @@ public class FlagService {
         }
         Flag created = flags.insert(key, description);
         auditLog.record(AuditEntry.created(user.username(), key, FlagSnapshot.of(created)));
+        events.publishEvent(new FlagChanged(key, allEnvironments()));
         return created;
     }
 
@@ -85,6 +90,7 @@ public class FlagService {
         Flag flag = find(key);
         flags.delete(flag.id());
         auditLog.record(AuditEntry.deleted(user.username(), key, flag));
+        events.publishEvent(new FlagChanged(key, allEnvironments()));
     }
 
     @Transactional
@@ -123,7 +129,13 @@ public class FlagService {
         }
         auditLog.record(AuditEntry.environmentChanged(
                 user.username(), key, envKey, action, summary.apply(before, after), before, after));
+        events.publishEvent(new FlagChanged(key, List.of(envKey)));
         return find(key).environment(envKey).orElseThrow();
+    }
+
+    // Description edits don't publish: they can't change an evaluation result.
+    private List<String> allEnvironments() {
+        return environments.list().stream().map(Environment::key).toList();
     }
 
     private Flag find(String key) {

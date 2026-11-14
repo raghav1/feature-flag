@@ -4,6 +4,7 @@ import type { Env, FlagResult } from "./api";
 import { DebugPanel } from "./DebugPanel";
 import { flagsQuery } from "./queries";
 import { Storefront } from "./Storefront";
+import { useLiveUpdates } from "./useLiveUpdates";
 import { DEMO_USERS, label, toSearch, type Selection } from "./users";
 
 interface AppProps {
@@ -18,6 +19,7 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
   const flags: Record<string, FlagResult> = query.data?.flags ?? {};
   const isOn = (key: string) => flags[key]?.value === true;
   const updating = query.isPlaceholderData || query.isFetching;
+  const live = useLiveUpdates(selection.env);
 
   function select(next: Selection) {
     setSelection(next);
@@ -76,6 +78,7 @@ export function App({ initialSelection, resolvedInMs }: AppProps) {
           env={selection.env}
           user={label(selection.user)}
           updating={updating}
+          live={live}
           resolvedInMs={resolvedInMs}
         />
       </div>

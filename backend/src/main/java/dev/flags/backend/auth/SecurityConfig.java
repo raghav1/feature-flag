@@ -49,6 +49,7 @@ class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         // SDK-key auth, checked by EvaluationController via SdkKeys; no user session.
                         .requestMatchers(HttpMethod.POST, "/api/evaluate").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/evaluate/stream").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex

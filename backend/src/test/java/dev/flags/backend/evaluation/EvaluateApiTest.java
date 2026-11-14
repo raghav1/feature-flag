@@ -100,7 +100,7 @@ class EvaluateApiTest extends ApiTest {
         evaluate("", "{}").andExpect(status().isUnauthorized());
         evaluate("not-a-key", "{}")
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Missing or unknown X-SDK-Key header."));
+                .andExpect(jsonPath("$.detail").value("Missing or unknown SDK key."));
     }
 
     @Test

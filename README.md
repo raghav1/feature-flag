@@ -34,7 +34,7 @@ If a port is already taken, override it: `ADMIN_PORT`, `DEMO_PORT`, `BACKEND_POR
 2. Switch to **Dee**: still the new dashboard, this time via "rule 3 (% rollout)". Switch to **Eli**: nothing matches, so you get the classic home page. Switch **Env** to dev: everything is ON and the store goes dark (`dark-mode`).
 3. Open the **admin** (http://localhost:5173) and sign in as `editor`. The prod switches are disabled and prod rules are read-only. Dev is editable.
 4. Sign in as `admin`, open `dark-mode`, and in **prod** change the rollout from 25% to 100%. Turn on its prod switch.
-5. Back in the demo (prod), press **Refresh**: every user with an ID now gets the dark theme. The flag's history in the admin reads "admin · prod · rollout 25% → 100%" and "admin · prod · turned ON".
+5. Back in the demo (prod), no refresh is needed: the change arrives over the live stream and every user with an ID now gets the dark theme. The flag's history in the admin reads "admin · prod · rollout 25% → 100%" and "admin · prod · turned ON".
 
 ## What's built
 
@@ -54,7 +54,9 @@ Beyond them:
 - **Optimistic locking**: concurrent edits get a clear conflict, not a silent overwrite.
 - **Resilience**: the demo renders with everything OFF if the flag service is down.
 
-Not built: live updates (SSE/WebSocket) and the TypeScript client SDK. See [What's missing](#whats-missing-and-how-id-build-it).
+- **Live updates** (stretch): the demo listens to a server-sent event stream and refetches when a flag changes, so admin changes show up without a refresh. It reconnects by itself after outages and catches up on anything it missed.
+
+Not built yet: the TypeScript client SDK. See [What's missing](#whats-missing-and-how-id-build-it).
 
 ## Architecture
 
@@ -119,6 +121,7 @@ All endpoints need a login session except `POST /api/auth/login` and `POST /api/
 | PUT | `/api/flags/{key}/envs/{env}/rules` | admin; editor for dev | `{rules, otherwise, version}` |
 | GET | `/api/audit?flag=&env=&limit=` | logged in | newest first; limit 1–200, default 50 |
 | POST | `/api/evaluate` | `X-SDK-Key` header | `{context: {userId?, attributes?}, flags?}` → results only |
+| GET | `/api/evaluate/stream?sdkKey=` | SDK key (query param or header) | server-sent events: `ready`, then `changed {environment, flagKey}` after each committed change |
 
 Rules are an ordered list; `serve` defaults to `true`:
 
@@ -148,6 +151,12 @@ POST /api/evaluate   X-SDK-Key: prod-sdk-key
 - Leave out `flags` to get every flag. Unknown keys come back OFF with `FLAG_NOT_FOUND`, not an error.
 - A missing context is anonymous, and null attributes are ignored.
 
+**Live changes.** `GET /api/evaluate/stream` is a server-sent event stream for the key's environment:
+- `ready` on connect, then `changed {"environment","flagKey"}` after each committed change that can affect results.
+- Denied, rolled-back and no-op changes are never announced, and events never carry rules.
+- The key goes in the query string because browsers' `EventSource` can't send headers; SDK keys are public anyway.
+- A keepalive comment every 20 s keeps proxies from closing idle streams.
+
 ### Demo users
 
 They're fictional, and each takes a different path through the seeded prod rules for `new-dashboard` (users u_102, u_207 → customers acme → 10% rollout → otherwise OFF):
@@ -167,12 +176,12 @@ They're fictional, and each takes a different path through the seeded prod rules
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 241 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 246 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
-| `backend` | 134 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules |
+| `backend` | 139 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules |
 | `admin`, `demo` | 16 | rule-draft parsing, relative times, reason explanations, URL state |
 
 No end-to-end browser tests (per the brief). Each UI flow was checked by hand in a browser; see [docs/ai-log.md](docs/ai-log.md).
@@ -197,9 +206,8 @@ No end-to-end browser tests (per the brief). Each UI flow was checked by hand in
 
 ## What's missing, and how I'd build it
 
-- **Live updates (SSE):** a `GET /api/envs/{env}/stream` endpoint that sends "config changed" after each committed write (a transactional event listener). The demo would refetch on that event. Today it refreshes on button press or window focus.
 - **TypeScript SDK:** `client.isEnabled("new-dashboard", user)` on top of `/api/evaluate`, with an in-memory per-user result cache refreshed by polling (or the SSE stream) and served from cache during an outage. The demo's fetch-before-render and all-OFF fallback are the start of it.
-- **Scale:** evaluation reads flags from Postgres on every call. With more traffic I'd keep an in-memory snapshot per environment, invalidated on writes (or via Postgres `LISTEN/NOTIFY` across instances).
+- **Scale:** evaluation reads flags from Postgres on every call, and the change stream lives in one backend instance's memory. With more traffic I'd keep an in-memory snapshot per environment, invalidated on writes, and fan changes out across instances with Postgres `LISTEN/NOTIFY`.
 - **Production hardening:**
   - real secrets for SDK keys and DB credentials;
   - login rate limiting;

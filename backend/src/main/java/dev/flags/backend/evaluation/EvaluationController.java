@@ -12,7 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
@@ -65,19 +69,35 @@ class EvaluationController {
 
     private final SdkKeys sdkKeys;
     private final EvaluationService evaluation;
+    private final ChangeStream changes;
 
-    EvaluationController(SdkKeys sdkKeys, EvaluationService evaluation) {
+    EvaluationController(SdkKeys sdkKeys, EvaluationService evaluation, ChangeStream changes) {
         this.sdkKeys = sdkKeys;
         this.evaluation = evaluation;
+        this.changes = changes;
     }
 
     @PostMapping("/api/evaluate")
     EvaluateResponse evaluate(@RequestHeader(SDK_KEY_HEADER) Optional<String> sdkKey, @Valid @RequestBody EvaluateRequest body) {
-        String env = sdkKey.flatMap(sdkKeys::environmentFor)
-                .orElseThrow(() -> new UnauthorizedException("Missing or unknown " + SDK_KEY_HEADER + " header."));
+        String env = environmentFor(sdkKey);
         Map<String, FlagResult> results = new LinkedHashMap<>();
         evaluation.evaluate(env, body.context().toEngineContext(), body.flags())
                 .forEach((key, result) -> results.put(key, FlagResult.of(result)));
         return new EvaluateResponse(env, results);
+    }
+
+    /**
+     * Server-sent events: "ready" on connect, then "changed" {environment, flagKey} after each committed change
+     * that can affect results. The key may come as a query parameter because browsers' EventSource can't set
+     * headers; SDK keys are public anyway.
+     */
+    @GetMapping(path = "/api/evaluate/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    SseEmitter stream(@RequestHeader(SDK_KEY_HEADER) Optional<String> sdkKeyHeader, @RequestParam Optional<String> sdkKey) {
+        return changes.subscribe(environmentFor(sdkKeyHeader.or(() -> sdkKey)));
+    }
+
+    private String environmentFor(Optional<String> sdkKey) {
+        return sdkKey.flatMap(sdkKeys::environmentFor)
+                .orElseThrow(() -> new UnauthorizedException("Missing or unknown SDK key."));
     }
 }

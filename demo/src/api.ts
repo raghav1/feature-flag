@@ -33,6 +33,11 @@ const SDK_KEYS: Record<Env, string> = {
 /** First render waits for flags, so a dead backend must not hold the page hostage. */
 const TIMEOUT_MS = 3000;
 
+/** "changed" events for one environment. Query-param key because EventSource can't send headers. */
+export function changeStreamUrl(env: Env): string {
+  return `/api/evaluate/stream?${new URLSearchParams({ sdkKey: SDK_KEYS[env] }).toString()}`;
+}
+
 export async function evaluate(env: Env, context: EvaluationContext): Promise<EvaluateResponse> {
   const response = await fetch("/api/evaluate", {
     method: "POST",

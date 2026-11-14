@@ -131,7 +131,7 @@ Errors use `application/problem+json`. Validation runs at the boundary (`@Valid`
 | PUT | `/api/flags/{key}/envs/{env}/rules` | per role table | `{rules, otherwise, version}` |
 | GET | `/api/audit?flag=&env=&limit=` | logged in | newest first |
 | POST | `/api/evaluate` | SDK key (decides the env) | `{context:{userId, attributes:{customer:"acme"}}, flags?}` → `{environment, flags: {key: {value, reason, ruleIndex?, ruleType?}}}`. Results only, never rules |
-| GET | `/api/envs/{env}/stream` | SDK key | *(stretch)* SSE "config changed" |
+| GET | `/api/evaluate/stream?sdkKey=` | SDK key | *(stretch, built in phase 6)* SSE: `ready`, then `changed {environment, flagKey}` after commit. The path changed from `/api/envs/{env}/stream`: the key decides the env, as for `/evaluate`, and goes in the query because EventSource can't send headers |
 
 An unknown flag at `/evaluate` returns `false` with `FLAG_NOT_FOUND` and HTTP 200, so a typo can't crash a client. Evaluation always runs on the server, so targeting lists never reach a browser.
 
