@@ -13,3 +13,8 @@ dist/
 
 # the brief stays out of the repo
 *.pdf
+
+# BMAD: personal answers and per-run rendered workflows stay local
+_bmad/config.user.toml
+_bmad/custom/*.user.toml
+_bmad/render/
