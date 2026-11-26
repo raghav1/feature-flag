@@ -134,6 +134,7 @@ In **dev**, every user gets every flag ON ("no rule matched → Otherwise ON"), 
 | ADM-RULE-15 | P1 | **No false conflict:** A edits rules (unsaved); B toggles the same flag in the same env; A saves | A's save succeeds (only the version moved) |
 | ADM-RULE-16 | P1 | A has no unsaved edits; B changes the rules | A's editor shows B's rules without a reload |
 | ADM-RULE-17 | P1 | Switch between the Development and Production tabs with unsaved edits | Behaviour is clear: edits kept per tab or a warning; never saved to the wrong env |
+| ADM-RULE-ATTR-01 | P0 | As editor, on a temporary flag ON in Development: add "Users by attribute", name `country`, "is not one of", values `US CA`, Save | Stored rule `{"type":"attribute","attribute":"country","operator":"not_in","values":["US","CA"],"serve":true}`; row reads "On for users whose country isn't US or CA"; no suggestion list in the values box |
 
 ### 4.6 Create, edit, delete
 

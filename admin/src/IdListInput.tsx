@@ -5,7 +5,8 @@ import { ago } from "./format";
 import { addIds } from "./rules";
 
 interface IdListInputProps {
-  kind: IdKind;
+  /** Which seen IDs to suggest and check. Absent (attribute values): no suggestions and no "never seen" note. */
+  kind?: IdKind;
   ids: string[];
   /** Typed text not yet turned into chips. Owned by the draft, so Save includes it. */
   pending: string;
@@ -31,8 +32,8 @@ export function IdListInput({ kind, ids, pending, onChange, disabled, label, pla
 
   const suggestions = useQuery({
     queryKey: ["contexts", kind, query],
-    queryFn: () => api.suggestIds(kind, query),
-    enabled: open && !disabled,
+    queryFn: () => (kind ? api.suggestIds(kind, query) : Promise.resolve([])),
+    enabled: kind !== undefined && open && !disabled,
     staleTime: 30_000,
   });
   const options = (suggestions.data ?? []).filter((s) => !ids.includes(s.value));
@@ -41,8 +42,8 @@ export function IdListInput({ kind, ids, pending, onChange, disabled, label, pla
   const sortedIds = [...ids].sort();
   const unseenQuery = useQuery({
     queryKey: ["contexts-unseen", kind, sortedIds],
-    queryFn: () => api.unseenIds(kind, sortedIds),
-    enabled: ids.length > 0,
+    queryFn: () => (kind ? api.unseenIds(kind, sortedIds) : Promise.resolve({ unseen: [] })),
+    enabled: kind !== undefined && ids.length > 0,
     staleTime: 30_000,
   });
   const unseen = new Set(unseenQuery.data?.unseen ?? []);

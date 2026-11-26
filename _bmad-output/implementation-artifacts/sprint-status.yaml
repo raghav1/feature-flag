@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-25-2026 21:30
-last_updated: 11-26-2026 10:00
+last_updated: 11-26-2026 13:00
 project: feature-flags
 project_key: NOKEY
 tracking_system: file-system
@@ -98,6 +98,6 @@ development_status:
   12-1-engine-attribute-rule: review
   12-2-attribute-rules-in-the-admin-api-and-evaluation: review
   12-3-attribute-rules-for-agents-over-mcp: review
-  12-4-attribute-rules-in-the-admin-dashboard: backlog
+  12-4-attribute-rules-in-the-admin-dashboard: review
   12-5-demo-storefront-shows-attribute-targeting: backlog
   epic-12-retrospective: optional

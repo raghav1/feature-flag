@@ -1,4 +1,4 @@
-// Executes the top 25 QA cases (docs/qa-top-25.md) against a running stack, recording video and screenshots.
+// Executes the top 25 QA cases (docs/qa-top-25.md), plus cases added after them, against a running stack, recording video and screenshots.
 //   node run.mjs [--reset] [ID ...]
 // --reset recreates the QA compose project from seed data first. With IDs, only those cases run.
 import {
@@ -89,6 +89,8 @@ async function expectDebug(scope, flag, state, why) {
 }
 
 const pretty = (v) => JSON.stringify(v, null, 2);
+/** Temporary flag for ADM-RULE-ATTR-01, deleted after the case. */
+const ATTR_FLAG = "qa-attr-rule";
 
 // ---------------------------------------------------------------- the 25 cases
 
@@ -777,6 +779,41 @@ const CASES = [
       ]);
       await t.shot(page, "evidence");
     },
+  },
+  // ------------------------------------------------ Added after the top 25
+  {
+    id: "ADM-RULE-ATTR-01", area: "Admin", title: "An editor targets users by attribute in dev",
+    expected: "Saved as country not_in [US, CA]; row reads \"On for users whose country isn't US or CA\"; no suggestions",
+    async fn(t) {
+      await admin.call("DELETE", `/api/flags/${ATTR_FLAG}`);
+      await admin.call("POST", "/api/flags", { key: ATTR_FLAG, description: "QA: attribute rule (temporary)" });
+      await admin.setEnabled(ATTR_FLAG, "dev", true);
+      const page = await adminPage(t, "editor");
+      const contextCalls = [];
+      page.on("request", (r) => { if (r.url().includes("/api/contexts")) contextCalls.push(r.url()); });
+      await expand(page, ATTR_FLAG);
+      await page.getByRole("tab", { name: /Development/ }).click();
+      await t.step("Add rule: Users by attribute; country, is not one of, US CA; Save");
+      await page.getByRole("group", { name: "Add rule" }).getByRole("button", { name: "Users by attribute" }).click();
+      await page.getByRole("textbox", { name: "Rule 1 attribute name" }).fill("country");
+      await page.getByRole("combobox", { name: "Rule 1 operator" }).selectOption({ label: "is not one of" });
+      const values = page.getByRole("combobox", { name: "Rule 1 values" });
+      await values.pressSequentially("u");
+      await page.waitForTimeout(1000);
+      await expect(page.getByRole("listbox")).toHaveCount(0);
+      expect(contextCalls).toEqual([]);
+      await values.fill("");
+      await values.pressSequentially("US CA");
+      await page.getByRole("button", { name: "Save dev rules" }).click();
+      await expect(page.getByText("Saved.")).toBeVisible();
+      await expect(page.locator(".status-sentence")).toHaveText("On for users whose country isn't US or CA");
+      const stored = (await admin.flag(ATTR_FLAG)).environments.dev.rules;
+      expect(stored).toEqual([{ type: "attribute", attribute: "country", operator: "not_in", values: ["US", "CA"], serve: true }]);
+      expect(contextCalls).toEqual([]);
+      t.note(`Stored dev rules: ${JSON.stringify(stored)}`);
+      await t.shot(page, "saved");
+    },
+    cleanup: async () => { await admin.call("DELETE", `/api/flags/${ATTR_FLAG}`); },
   },
 ].map((c, i) => ({ ...c, n: i + 1 }));
 

@@ -243,8 +243,12 @@ mark { background: var(--highlight); color: inherit; border-radius: 2px; }
 .rule-icon.users { background: var(--accent-subtle); color: var(--accent-fg); }
 .rule-icon.customers { background: var(--sponsors-subtle); color: var(--sponsors-fg); }
 .rule-icon.percent { background: var(--success-subtle); color: var(--success-fg); }
+.rule-icon.attribute { background: var(--attention-subtle); color: var(--attention-fg); }
 .rule-icon.otherwise { background: var(--neutral-subtle); color: var(--fg-muted); }
 .rule-actions { display: inline-flex; }
+.attribute-rule { display: flex; flex-direction: column; gap: var(--space-2); }
+.attribute-rule-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.attribute-rule-head input { flex: 1; min-width: 160px; max-width: 280px; }
 .rule-body { padding: 0 var(--space-3) var(--space-3) 52px; display: flex; flex-direction: column; gap: var(--space-2); }
 .rule-problem { margin: 0; }
 .percent { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }

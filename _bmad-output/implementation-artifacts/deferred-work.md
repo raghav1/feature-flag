@@ -56,3 +56,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-3-attribute-rules-for-agents-over-mcp.md`
   summary: Story 12.5 README pass must also cover the Agents (MCP) table's set_flag_rules row ("users, customers, percent or attribute") and the test counts (stale since 12.2).
   evidence: Repo Invariants FAIL 19 on 12.2 and again on 12.3; README is scoped to 12.5.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-4-attribute-rules-in-the-admin-dashboard.md`
+  summary: An attribute rule serving OFF under Otherwise ON reads as a double negative ("On for everyone except users whose country isn't US"); consider "On only for users whose country is US" for that shape.
+  evidence: Blind Hunter. Real but wording-only; AD-16 didn't cover the serve-OFF case, so it needs a product decision.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-4-attribute-rules-in-the-admin-dashboard.md`
+  summary: Rule editor shows one problem per rule; an invalid name hides malformed values until the name is fixed.
+  evidence: Blind Hunter and Edge Case Hunter. Low: Save is blocked either way and the next error appears immediately.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-4-attribute-rules-in-the-admin-dashboard.md`
+  summary: Client-side patterns (ID_PATTERN, ATTRIBUTE_NAME_PATTERN) are hand copies of the server's; no check keeps them in sync.
+  evidence: Blind Hunter. Pre-existing approach for IDs; the server stays the authority, so drift costs only a late error.
