@@ -31,3 +31,25 @@
 - Oneshot reviewer scope: `_bmad/custom/bmad-build.toml` now reviews every untracked file, including docs/, qa/, README.md and _bmad-output/; both copies carry a keep-in-step note.
 - Spine binds: AD-4 added to binds and Inherited Invariants; lint_spine 0 findings; logged in the spine memlog.
 - ADM-ACT-02 failure screenshot: leftover from an earlier attempt at 15:05; the final run's `qa/results/top15/results.json` records PASS. The image shows the correct UI (2 matches, "(all matches)") with the case still RUNNING, so it was a harness timing failure on that attempt, not a product bug. No tokens, paths or emails visible. Left untracked; not part of this change.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: Don't merge Story 12.2 to main without 12.3 and 12.4 — the backend now accepts attribute rules, but the admin's toDraft/ruleAudience (admin/src/rules.ts:59-79, audience.ts:31-38) return undefined for them, so a flag with one breaks the dashboard, and MCP's schema doesn't list the type.
+  evidence: Verification Gap, Edge Case Hunter and Blind Hunter independently. Reachable once any attribute rule is saved via REST or MCP. The readiness gate's "stories independently completable" check missed that 12.2 alone leaves an inconsistent product.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: Story 12.3 — switch MCP's unknown-type message (AdminTools.java:339) to the shared rule-type list, add attribute to the set_flag_rules oneOf (L278-282), update McpApiTest:354, add an attribute round-trip and rejection test.
+  evidence: Four reviewers. Already Story 12.3 scope; listed so its spec picks up every site.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: README Assumption 2 and test counts disagree with docs/plan.md decision 2 until Story 12.5.
+  evidence: Repo Invariants FAIL 19 and Blind Hunter. The approved spec excluded README changes from 12.2; AGENTS.md asks to keep README in step, so 12.5 must not slip.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: Document in README (12.5) that attribute names are lowercase, so SDK callers must send lowercase keys (e.g. app_version, not appVersion).
+  evidence: Edge Case Hunter. /api/evaluate accepts any key, but AttributeNames only allows lowercase names, so a camelCase key can never be targeted; that's the approved AD-14 decision, but it's invisible to SDK users.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: The 1000-item cap (@Size(max = 1000)) is untested for users, customers and attribute rules alike.
+  evidence: Verification Gap; grep finds no 1000/1001 test. Pre-existing pattern across all rule types; close it for all three together.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: An empty value "" in users, customers or attribute lists likely yields two errors for one field (@NotBlank and @Pattern both fail).
+  evidence: Blind Hunter. Pattern copied from UsersRule/CustomersRule (pre-existing); unverified count — a request with "" and assertion on errors.length() would settle it.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
+  summary: AttributeNames.isValid is unused in production and not null-safe — use it in Story 12.3 (MCP) or remove it.
+  evidence: Blind Hunter and Repo Invariants note.

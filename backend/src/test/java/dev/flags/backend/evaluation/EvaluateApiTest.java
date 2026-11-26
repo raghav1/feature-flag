@@ -160,6 +160,58 @@ class EvaluateApiTest extends ApiTest {
         evaluate(PROD_KEY, "{nope").andExpect(status().isBadRequest());
     }
 
+    private static final String COUNTRY_RULE =
+            "[{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"in\",\"values\":[\"US\",\"CA\"]}]";
+
+    private String prodFlagWithCountryRule() throws Exception {
+        MockHttpSession admin = login("admin");
+        String key = createFlag(admin, uniqueKey("geo"));
+        putRules(admin, key, "prod", COUNTRY_RULE, false, 0).andExpect(status().isOk());
+        putEnabled(admin, key, "prod", true, 1).andExpect(status().isOk());
+        return key;
+    }
+
+    @ParameterizedTest(name = "country {0}: value={1} reason={2}")
+    @CsvSource(nullValues = "-", textBlock = """
+            CA, true,  RULE_MATCH
+            DE, false, OTHERWISE
+            -,  false, OTHERWISE
+            """)
+    void attributeRuleMatchesOnTheContextAttribute(String country, boolean value, String reason) throws Exception {
+        String key = prodFlagWithCountryRule();
+        String attributes = country == null ? "{}" : "{\"country\":\"%s\"}".formatted(country);
+
+        JsonNode result = readJson(evaluate(PROD_KEY, "{\"context\":{\"userId\":\"u_412\",\"attributes\":%s},\"flags\":[\"%s\"]}"
+                        .formatted(attributes, key)).andExpect(status().isOk()))
+                .path("flags").path(key);
+
+        assertThat(result.path("value").asBoolean()).isEqualTo(value);
+        assertThat(result.path("reason").asText()).isEqualTo(reason);
+        if (value) {
+            assertThat(result.path("ruleType").asText()).isEqualTo("attribute");
+            assertThat(result.path("ruleIndex").asInt()).isZero();
+        } else {
+            assertThat(result.has("ruleType")).isFalse();
+        }
+    }
+
+    @ParameterizedTest(name = "attributes {0}")
+    @ValueSource(strings = {"{\"country\":\"CA\"}", "{\"plan\":\"pro\"}"})
+    void attributeRuleNameAndValuesNeverReachTheResponse(String attributes) throws Exception {
+        String key = prodFlagWithCountryRule();
+
+        String body = evaluate(PROD_KEY, "{\"context\":{\"userId\":\"u_412\",\"attributes\":%s},\"flags\":[\"%s\"]}".formatted(attributes, key))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        if (attributes.contains("CA")) {
+            assertThat(json.readTree(body).at("/flags/" + key + "/ruleType").asText()).as("matched").isEqualTo("attribute");
+        }
+
+        for (String secret : new String[] {"country", "\"US\"", "\"CA\"", "operator", "values"}) {
+            assertThat(body).as("leaks %s", secret).doesNotContain(secret);
+        }
+    }
+
     @Test
     void reflectsAdminChangesImmediately() throws Exception {
         MockHttpSession admin = login("admin");

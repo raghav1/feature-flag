@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import dev.flags.engine.Rule;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * A targeting rule as it appears in the admin API and in the flag_environment.rules column. Adding a rule type
@@ -15,6 +17,7 @@ import dev.flags.engine.Rule;
     @JsonSubTypes.Type(UsersRule.class),
     @JsonSubTypes.Type(CustomersRule.class),
     @JsonSubTypes.Type(PercentRule.class),
+    @JsonSubTypes.Type(AttributeRule.class),
 })
 public interface RuleSpec {
 
@@ -32,6 +35,13 @@ public interface RuleSpec {
 
     /** Plain words for the audit log, e.g. "users u_102, u_207" or "10% rollout". */
     String describe();
+
+    /** Every registered JSON "type" name, in {@link JsonSubTypes} order, e.g. for "unknown rule type" messages. */
+    static List<String> typeNames() {
+        return Arrays.stream(RuleSpec.class.getAnnotation(JsonSubTypes.class).value())
+                .map(type -> type.value().getAnnotation(JsonTypeName.class).value())
+                .toList();
+    }
 
     static Boolean defaultServe(Boolean serve) {
         return serve == null ? Boolean.TRUE : serve;

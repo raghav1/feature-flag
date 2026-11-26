@@ -3,6 +3,7 @@ package dev.flags.backend.access;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 
 /** An editor must not be able to change prod by any route, while dev keeps working. */
@@ -53,6 +55,19 @@ class EditorProdApiTest extends ApiTest {
 
         assertThat(getFlag(admin, key).at("/environments/prod/rules")).isEmpty();
         assertThat(getFlag(admin, key).at("/environments/prod/otherwise").asBoolean()).isFalse();
+    }
+
+    @Test
+    void editorCannotSaveAnAttributeRuleInProd() throws Exception {
+        String rule = "[{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"in\",\"values\":[\"US\"]}]";
+
+        putRules(editor, key, "prod", rule, false, 0)
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value("editor (editor) may not change prod."));
+
+        assertThat(getFlag(admin, key).at("/environments/prod/rules")).isEmpty();
+        assertThat(audit(admin, key)).hasSize(1);
     }
 
     @Test

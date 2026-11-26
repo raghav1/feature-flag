@@ -15,7 +15,7 @@ export interface FlagResult {
   reason: Reason;
   /** Zero-based; present only when reason is RULE_MATCH. */
   ruleIndex?: number;
-  /** "users" | "customers" | "percent"; present only when reason is RULE_MATCH. */
+  /** "users" | "customers" | "percent" | "attribute"; present only when reason is RULE_MATCH. */
   ruleType?: string;
 }
 

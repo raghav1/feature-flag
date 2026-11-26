@@ -21,34 +21,43 @@ import org.springframework.mock.web.MockHttpSession;
  */
 class RoleMatrixApiTest extends ApiTest {
 
-    enum Op { READ, TOGGLE_DEV, RULES_DEV, TOGGLE_PROD, RULES_PROD, CREATE, EDIT_DESCRIPTION, DELETE }
+    enum Op { READ, TOGGLE_DEV, RULES_DEV, ATTRIBUTE_RULES_DEV, TOGGLE_PROD, RULES_PROD, ATTRIBUTE_RULES_PROD, CREATE, EDIT_DESCRIPTION, DELETE }
+
+    private static final String ATTRIBUTE_RULE =
+            "[{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"in\",\"values\":[\"US\"]}]";
 
     @ParameterizedTest(name = "{0} {1} -> {2}")
     @CsvSource(textBlock = """
-            admin,  READ,             200
-            editor, READ,             200
-            viewer, READ,             200
-            admin,  TOGGLE_DEV,       200
-            editor, TOGGLE_DEV,       200
-            viewer, TOGGLE_DEV,       403
-            admin,  RULES_DEV,        200
-            editor, RULES_DEV,        200
-            viewer, RULES_DEV,        403
-            admin,  TOGGLE_PROD,      200
-            editor, TOGGLE_PROD,      403
-            viewer, TOGGLE_PROD,      403
-            admin,  RULES_PROD,       200
-            editor, RULES_PROD,       403
-            viewer, RULES_PROD,       403
-            admin,  CREATE,           201
-            editor, CREATE,           201
-            viewer, CREATE,           403
-            admin,  EDIT_DESCRIPTION, 200
-            editor, EDIT_DESCRIPTION, 200
-            viewer, EDIT_DESCRIPTION, 403
-            admin,  DELETE,           204
-            editor, DELETE,           403
-            viewer, DELETE,           403
+            admin,  READ,                 200
+            editor, READ,                 200
+            viewer, READ,                 200
+            admin,  TOGGLE_DEV,           200
+            editor, TOGGLE_DEV,           200
+            viewer, TOGGLE_DEV,           403
+            admin,  RULES_DEV,            200
+            editor, RULES_DEV,            200
+            viewer, RULES_DEV,            403
+            admin,  ATTRIBUTE_RULES_DEV,  200
+            editor, ATTRIBUTE_RULES_DEV,  200
+            viewer, ATTRIBUTE_RULES_DEV,  403
+            admin,  TOGGLE_PROD,          200
+            editor, TOGGLE_PROD,          403
+            viewer, TOGGLE_PROD,          403
+            admin,  RULES_PROD,           200
+            editor, RULES_PROD,           403
+            viewer, RULES_PROD,           403
+            admin,  ATTRIBUTE_RULES_PROD, 200
+            editor, ATTRIBUTE_RULES_PROD, 403
+            viewer, ATTRIBUTE_RULES_PROD, 403
+            admin,  CREATE,               201
+            editor, CREATE,               201
+            viewer, CREATE,               403
+            admin,  EDIT_DESCRIPTION,     200
+            editor, EDIT_DESCRIPTION,     200
+            viewer, EDIT_DESCRIPTION,     403
+            admin,  DELETE,               204
+            editor, DELETE,               403
+            viewer, DELETE,               403
             """)
     void roleMatrix(String username, Op op, int expectedStatus) throws Exception {
         MockHttpSession admin = login("admin");
@@ -86,6 +95,8 @@ class RoleMatrixApiTest extends ApiTest {
             case TOGGLE_PROD -> putEnabled(s, key, "prod", true, 0);
             case RULES_DEV -> putRules(s, key, "dev", "[{\"type\":\"percent\",\"percent\":10}]", false, 0);
             case RULES_PROD -> putRules(s, key, "prod", "[{\"type\":\"percent\",\"percent\":10}]", false, 0);
+            case ATTRIBUTE_RULES_DEV -> putRules(s, key, "dev", ATTRIBUTE_RULE, false, 0);
+            case ATTRIBUTE_RULES_PROD -> putRules(s, key, "prod", ATTRIBUTE_RULE, false, 0);
             case CREATE -> mvc.perform(post("/api/flags").session(s).with(csrf())
                     .contentType(MediaType.APPLICATION_JSON).content("{\"key\":\"%s\"}".formatted(newKey)));
             case EDIT_DESCRIPTION -> mvc.perform(patch("/api/flags/" + key).session(s).with(csrf())

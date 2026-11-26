@@ -52,7 +52,7 @@ interface Rule {
 ```
 
 - **Context is open-ended.** `userId` is nullable. `attributes` is defensively copied and never null, and `attribute(name)` returns null when a key is absent. `CustomerIdIn` reads `attribute("customer")`. A rule on a new attribute (for example `country`) needs no change to the context, the mapper or the API.
-- **Open/closed.** The evaluator only loops over rules and never switches on their type. Built-in rules are records: `UserIdIn`, `CustomerIdIn`, `PercentRollout`. A new rule type is a new class plus one JSON-type registration in the backend; the evaluator doesn't change.
+- **Open/closed.** The evaluator only loops over rules and never switches on their type. Built-in rules are records: `UserIdIn`, `CustomerIdIn`, `PercentRollout`, `AttributeIn` (added in Epic 12). A new rule type is a new class plus one JSON-type registration in the backend; the evaluator doesn't change.
 - **Semantics.** If the flag is disabled in the env, the result is `false` with `FLAG_OFF`. Otherwise rules run top to bottom and the **first match wins**, returning that rule's `serve`. If nothing matches, the result is the `otherwise` value (default `false`), shown in the UI as an **"Otherwise → ON/OFF" row under the rules**.
 - **Pure.** No I/O, clock, randomness, logging or mutable static state. Records with defensive copies; constructors validate (non-null key, percent 0–100, non-empty ID lists).
 
@@ -137,7 +137,7 @@ Errors use `application/problem+json`. Validation runs at the boundary (`@Valid`
 
 An unknown flag at `/evaluate` returns `false` with `FLAG_NOT_FOUND` and HTTP 200, so a typo can't crash a client. Evaluation always runs on the server, so targeting lists never reach a browser.
 
-*Changed in phase 3:* the environment comes from the SDK key instead of an `env` field, so a dev key can't read prod. Results also carry `ruleType` ("users", "customers", "percent") for the debug panel; it names the kind of rule, not its targets.
+*Changed in phase 3:* the environment comes from the SDK key instead of an `env` field, so a dev key can't read prod. Results also carry `ruleType` ("users", "customers", "percent", and since Epic 12 "attribute") for the debug panel; it names the kind of rule, not its targets.
 
 ## Frontends
 
@@ -168,7 +168,7 @@ Finish what's started: a phase is either complete or not begun. Stretch items ge
 These are also recorded in the README under Assumptions.
 
 1. A flag that's ON with no rules serves its **Otherwise** value (default OFF). For "on for everyone", set Otherwise → ON or add a 100 % rule.
-2. Rule types are user-ID list, customer list and percentage rollout. There are no generic attribute/operator rules yet, but the engine is open to them.
+2. Rule types are user-ID list, customer list and percentage rollout. *Changed in Epic 12:* an attribute rule (`attribute` in / not in a list of values) was added; see "Added after the plan: attribute rules".
 3. Rollouts bucket by `userId` only. A user with no ID skips percentage rules.
 4. A user lands in the same bucket in dev and prod, because the hash ignores the env.
 5. Flag keys are immutable, since a rename would re-bucket everyone. Descriptions are editable.
@@ -176,6 +176,17 @@ These are also recorded in the README under Assumptions.
 7. Editors can create flags and edit descriptions but not delete flags, because a delete also wipes prod config.
 8. Demo users are a static fictional list in the demo app, not DB rows.
 9. Environments are a fixed dev/prod pair, with no create-env API. The schema allows more.
+
+## Added after the plan: attribute rules (Epic 12)
+
+- A fourth rule type targets any context attribute (country, plan, …). Engine: `AttributeIn(attribute, operator, values, serve)` with `Operator { IN, NOT_IN }`; an absent or blank value never matches, for either operator; values match exactly and case-sensitively.
+- Rule JSON in `PUT /api/flags/{key}/envs/{env}/rules` (existing rule JSON unchanged):
+  `{"type":"attribute","attribute":"country","operator":"in","values":["US","CA"],"serve":true}`
+  - `operator` is required: exactly `in` or `not_in`. `serve` defaults to ON, like other rules.
+  - `attribute` matches `^[a-z][a-z0-9_]{0,63}$` (`AttributeNames`); each value uses the rule-ID format (`ContextIds`); at least one value, at most 1000.
+  - A bad field is a 400 naming it: `rules[0].operator`, `rules[0].attribute`, `rules[0].values`, `rules[0].values[1]`. The unknown-type message lists every rule type.
+- Audit wording: "country in US, CA", "country not in US (serves OFF)".
+- `/api/evaluate` reports `ruleType: "attribute"` and the rule index only, never the attribute name or values. The role matrix is unchanged.
 
 ## Added after the plan: agents (MCP) and API keys
 
