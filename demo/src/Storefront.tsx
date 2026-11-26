@@ -8,6 +8,7 @@ import {
   ShoppingBag,
   Sparkles,
   ToggleRight,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -102,6 +103,19 @@ export function Storefront({ isOn, name, customer }: StorefrontProps) {
             ))}
           </ul>
           <FlagNote flag="beta-reports" suffix={customer ? ` for ${customer}` : ""} />
+        </section>
+      )}
+
+      {isOn("free-shipping") && (
+        <section className="box shipping" data-flag="free-shipping">
+          <div className="box-head">
+            <span className="shipping-icon" aria-hidden="true">
+              <Truck size={16} />
+            </span>
+            <h2>Free shipping on every order</h2>
+          </div>
+          <p className="muted">No minimum spend. Applied at checkout.</p>
+          <FlagNote flag="free-shipping" suffix=" where you are" />
         </section>
       )}
 

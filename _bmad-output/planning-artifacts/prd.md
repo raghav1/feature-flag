@@ -1,7 +1,7 @@
 ---
 title: Feature Flag Service
 created: 2026-11-13
-updated: 2026-11-25
+updated: 2026-11-26
 status: final
 provenance: backfilled
 ---
@@ -10,7 +10,7 @@ provenance: backfilled
 
 ## 0. Document Purpose
 
-This PRD was backfilled on 2026-11-25 for a product that was already built, as part of moving the repo onto the BMAD method. It records the requirements the shipped code satisfies, so new work (epics, stories, `bmad-build` runs) can reference stable FR numbers. It does not replace `docs/plan.md`, which stays the design source of truth; the architecture lives in `architecture.md` next to this file. The original brief is a PDF kept out of the repo, so its must-haves are reconstructed from README → "What's built". Assumptions refer to README → Assumptions by number (A-1 … A-18) instead of copying them.
+This PRD was backfilled on 2026-11-25 for a product that was already built, as part of moving the repo onto the BMAD method. It records the requirements the shipped code satisfies, so new work (epics, stories, `bmad-build` runs) can reference stable FR numbers. It does not replace `docs/plan.md`, which stays the design source of truth; the architecture lives in `architecture.md` next to this file. The original brief is a PDF kept out of the repo, so its must-haves are reconstructed from README → "What's built". Assumptions refer to README → Assumptions by number (A-1 … A-20) instead of copying them.
 
 ## 1. Vision
 
@@ -90,6 +90,7 @@ A permitted User can add, remove and reorder Rules and set Otherwise, saved whol
 **Consequences (testable):**
 - User and customer IDs are validated (letters, digits, `_ . : @ -`, max 128); a bad one is a 400 naming e.g. `rules[0].userIds[1]` (A-18).
 - Percent is 0–100.
+- An attribute rule (added in Epic 12) needs `operator` `in` or `not_in`, a lowercase attribute name (`^[a-z][a-z0-9_]{0,63}$`, A-19) and at least one value in the ID format; a bad field is a 400 naming e.g. `rules[0].operator` or `rules[0].values[1]`.
 
 #### FR-5: Deterministic evaluation
 The service evaluates Flags for an Evaluation Context with the semantics above.
@@ -106,6 +107,8 @@ Clients call `/api/evaluate` with an SDK Key, which decides the Environment (A-1
 
 #### FR-7: Extensible targeting
 A new Rule type or context attribute can be added without changing the evaluator, mapper or Evaluation Context.
+**Consequences (testable):**
+- Epic 12 added the attribute rule this way: a context attribute (e.g. `country`) in or not in a list of values, exact and case-sensitive; an absent or blank attribute never matches. Evaluation reports its kind as `attribute`, never the name or values. The seeded `free-shipping` flag (`country in [CA]` in prod) shows it on the demo storefront.
 
 ### 4.3 Access Control and Audit
 
@@ -165,7 +168,7 @@ An ADMIN can issue, list and revoke API Keys, each a fixed Role with optional ex
 ## 5. Non-Goals (Explicit)
 
 - Server-side local evaluation (rules leaving the service).
-- Generic attribute/operator rules (open for later, FR-7).
+- Operators beyond `in` / `not in`, combining attributes in one rule, and an attribute-name registry (attribute rules themselves shipped in Epic 12, FR-7).
 - More than two Environments; environment management.
 - User management; users are seeded.
 - Multi-instance scale-out.
@@ -174,7 +177,7 @@ An ADMIN can issue, list and revoke API Keys, each a fixed Role with optional ex
 ## 6. MVP Scope
 
 ### 6.1 In Scope
-All of §4. Must-haves from the brief: FR-1, FR-3, FR-4, FR-5, FR-9, FR-11 (list, toggle, edit), FR-15, and engine unit tests. Stretch items delivered: FR-8, FR-16, FR-17. Added after the plan: FR-10, FR-13, FR-14, FR-18, FR-19.
+All of §4. Must-haves from the brief: FR-1, FR-3, FR-4, FR-5, FR-9, FR-11 (list, toggle, edit), FR-15, and engine unit tests. Stretch items delivered: FR-8, FR-16, FR-17. Added after the plan: FR-10, FR-13, FR-14, FR-18, FR-19, and attribute rules under FR-4 and FR-7 (Epic 12).
 
 ### 6.2 Out of Scope for MVP
 See README → "What's missing": a server SDK, scale-out, MCP OAuth and rate limits, production hardening (secrets, login rate limiting, CI, durable sessions).

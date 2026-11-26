@@ -49,6 +49,23 @@ class FlagApiTest extends ApiTest {
     }
 
     @Test
+    void freeShippingSeedTargetsCanadaInProd() throws Exception {
+        JsonNode flag = getFlag(admin, "free-shipping");
+
+        assertThat(flag.path("description").asText()).isEqualTo("Free shipping for Canada");
+        JsonNode prod = flag.at("/environments/prod");
+        assertThat(prod.path("enabled").asBoolean()).isTrue();
+        assertThat(prod.path("otherwise").asBoolean()).isFalse();
+        assertThat(prod.path("rules")).hasSize(1);
+        assertThat(json.writeValueAsString(prod.path("rules").get(0))).isEqualTo(
+                "{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"in\",\"values\":[\"CA\"],\"serve\":true}");
+        JsonNode dev = flag.at("/environments/dev");
+        assertThat(dev.path("enabled").asBoolean()).isTrue();
+        assertThat(dev.path("otherwise").asBoolean()).isTrue();
+        assertThat(dev.path("rules")).isEmpty();
+    }
+
+    @Test
     void createdFlagIsOffEverywhereWithNoRules() throws Exception {
         String key = uniqueKey("fresh");
 

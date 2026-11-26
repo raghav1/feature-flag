@@ -20,7 +20,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * POST /api/evaluate against the seed data. Seed prod rules for new-dashboard: [users u_102,u_207],
- * [customers acme], [10% rollout]; beta-reports: [customers acme]; dark-mode: disabled in prod.
+ * [customers acme], [10% rollout]; beta-reports: [customers acme]; dark-mode: disabled in prod;
+ * free-shipping (V5): [country in CA].
  */
 class EvaluateApiTest extends ApiTest {
 
@@ -36,17 +37,25 @@ class EvaluateApiTest extends ApiTest {
         return readJson(evaluate(PROD_KEY, "{\"context\":%s}".formatted(contextJson)).andExpect(status().isOk()));
     }
 
-    @ParameterizedTest(name = "{0}: new-dashboard={1} via {2} {3}, beta-reports={4} {5}")
+    @ParameterizedTest(name = "{0}: new-dashboard={1} via {2} {3}, beta-reports={4} {5}, country {7}: free-shipping={8} {9}")
     @CsvSource(nullValues = "-", textBlock = """
-            u_102, true,  RULE_MATCH, users,     false, OTHERWISE, -
-            u_207, true,  RULE_MATCH, users,     true,  RULE_MATCH, acme
-            u_350, true,  RULE_MATCH, customers, true,  RULE_MATCH, acme
-            u_303, true,  RULE_MATCH, percent,   false, OTHERWISE, zenith
-            u_412, false, OTHERWISE,  -,         false, OTHERWISE, zenith
+            u_102, true,  RULE_MATCH, users,     false, OTHERWISE,  -,      US, false, OTHERWISE
+            u_207, true,  RULE_MATCH, users,     true,  RULE_MATCH, acme,   CA, true,  RULE_MATCH
+            u_350, true,  RULE_MATCH, customers, true,  RULE_MATCH, acme,   US, false, OTHERWISE
+            u_303, true,  RULE_MATCH, percent,   false, OTHERWISE,  zenith, DE, false, OTHERWISE
+            u_412, false, OTHERWISE,  -,         false, OTHERWISE,  zenith, -,  false, OTHERWISE
             """)
     void eachDemoUserTakesTheirOwnPath(String userId, boolean dashboard, String dashboardReason, String ruleType,
-            boolean beta, String betaReason, String customer) throws Exception {
-        String attributes = customer == null ? "{}" : "{\"customer\":\"%s\"}".formatted(customer);
+            boolean beta, String betaReason, String customer, String country, boolean freeShipping,
+            String freeShippingReason) throws Exception {
+        StringBuilder attributes = new StringBuilder("{");
+        if (customer != null) {
+            attributes.append("\"customer\":\"%s\"".formatted(customer));
+        }
+        if (country != null) {
+            attributes.append(customer == null ? "" : ",").append("\"country\":\"%s\"".formatted(country));
+        }
+        attributes.append('}');
         JsonNode flags = evaluateProd("{\"userId\":\"%s\",\"attributes\":%s}".formatted(userId, attributes)).path("flags");
 
         assertThat(flags.at("/new-dashboard/value").asBoolean()).isEqualTo(dashboard);
@@ -60,6 +69,31 @@ class EvaluateApiTest extends ApiTest {
         assertThat(flags.at("/beta-reports/value").asBoolean()).isEqualTo(beta);
         assertThat(flags.at("/beta-reports/reason").asText()).isEqualTo(betaReason);
         assertThat(flags.at("/dark-mode/reason").asText()).isEqualTo("FLAG_OFF");
+        assertThat(flags.at("/free-shipping/value").asBoolean()).isEqualTo(freeShipping);
+        assertThat(flags.at("/free-shipping/reason").asText()).isEqualTo(freeShippingReason);
+        if (freeShipping) {
+            assertThat(flags.at("/free-shipping/ruleIndex").asInt()).isZero();
+            assertThat(flags.at("/free-shipping/ruleType").asText()).isEqualTo("attribute");
+        } else {
+            assertThat(flags.at("/free-shipping").has("ruleType")).isFalse();
+            assertThat(flags.at("/free-shipping").has("ruleIndex")).isFalse();
+        }
+    }
+
+    @Test
+    void freeShippingIsForCanadaInProdAndEveryoneInDev() throws Exception {
+        JsonNode anonymous = evaluateProd("{}").at("/flags/free-shipping");
+        assertThat(anonymous.path("reason").asText()).isEqualTo("OTHERWISE");
+        assertThat(anonymous.path("value").asBoolean()).isFalse();
+
+        JsonNode anonymousInCanada = evaluateProd("{\"attributes\":{\"country\":\"CA\"}}").at("/flags/free-shipping");
+        assertThat(anonymousInCanada.path("value").asBoolean()).isTrue();
+        assertThat(anonymousInCanada.path("reason").asText()).isEqualTo("RULE_MATCH");
+        assertThat(anonymousInCanada.path("ruleType").asText()).isEqualTo("attribute");
+        evaluate(DEV_KEY, "{\"context\":{\"userId\":\"u_102\",\"attributes\":{\"country\":\"US\"}}}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.flags.free-shipping.value").value(true))
+                .andExpect(jsonPath("$.flags.free-shipping.reason").value("OTHERWISE"));
     }
 
     @Test

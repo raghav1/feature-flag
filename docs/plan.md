@@ -188,6 +188,7 @@ These are also recorded in the README under Assumptions.
 - Audit wording: "country in US, CA", "country not in US (serves OFF)".
 - `/api/evaluate` reports `ruleType: "attribute"` and the rule index only, never the attribute name or values. The role matrix is unchanged.
 - MCP `set_flag_rules` accepts the same rule JSON with the same validation and field errors. Its input schema's attribute variant is built from `AttributeNames` and `ContextIds`, and `McpApiTest` fails if any registered rule type is missing from the schema or the unknown-type message (Story 12.3). The server instructions mention attribute rules.
+- Seed and demo (Story 12.5): migration `V5__free_shipping_seed.sql` adds `free-shipping` (prod: enabled, `country in [CA]`, Otherwise OFF; dev: enabled, no rules, Otherwise ON). The demo's fictional users send a `country` attribute (Ana and Cy US, Ben CA, Dee DE, Eli and the anonymous visitor none), and the storefront shows a free-shipping block.
 
 ## Added after the plan: agents (MCP) and API keys
 

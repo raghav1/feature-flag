@@ -65,3 +65,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-4-attribute-rules-in-the-admin-dashboard.md`
   summary: Client-side patterns (ID_PATTERN, ATTRIBUTE_NAME_PATTERN) are hand copies of the server's; no check keeps them in sync.
   evidence: Blind Hunter. Pre-existing approach for IDs; the server stays the authority, so drift costs only a late error.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-5-demo-storefront-shows-attribute-targeting.md`
+  summary: Storefront flag blocks (free-shipping, and the existing ones) are only checked by the QA runner, which ./test.sh and CI don't run; add the QA runner to CI or add component tests.
+  evidence: Verification Gap. Pre-existing choice ("./test.sh has no browser tests"); a mistyped flag key in Storefront.tsx would pass ./test.sh.
