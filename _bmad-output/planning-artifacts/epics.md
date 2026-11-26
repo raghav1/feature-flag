@@ -52,6 +52,7 @@ No separate UX document; the admin and storefront follow the conventions in `AGE
 | FR-16 | 6 |
 | FR-17 | 6 |
 | FR-18, FR-19 | 8 |
+| FR-4, FR-7 extended by SPEC-attribute-rules CAP-1 – CAP-5 | 12 |
 
 ## Epic List
 
@@ -69,6 +70,7 @@ No separate UX document; the admin and storefront follow the conventions in `AGE
 | 9 | Admin for product managers and Activity | done | 1ceca1f, cb2bc2a |
 | 10 | Shared design system | done | 433513d, 627cb78 |
 | 11 | Browser QA | done | 2b6deb3, 4fd0b41, c94556e, bbbf544, 4b4cc13 |
+| 12 | Attribute targeting rules | in progress | (BMAD pilot: SPEC-attribute-rules) |
 
 ## Epic 0: Scaffold and clean-machine test runner
 
@@ -251,3 +253,76 @@ As a user, I want readable light and dark themes in both apps, so that the UI is
 As a maintainer, I want the 25 most important cases run in a real browser with evidence, so that demos are trustworthy.
 
 **Given** the `ff-qa` stack reset to seed data **When** `qa/run.mjs` runs **Then** all 25 pass with video, screenshots and `qa/results/REPORT.md` (run 1 found the Discard bug, fixed in c94556e).
+
+## Epic 12: Attribute targeting rules
+
+Product managers target users by any attribute (country, plan…) being in or not in a list, from the dashboard, the API and agents, and the demo shows it working. Contract: `_bmad-output/specs/spec-attribute-rules/SPEC.md` (CAP-1 – CAP-5) and its architecture spine (AD-12 – AD-16, inheriting AD-1 – AD-11). Stories run in order; each ends with `./test.sh` green.
+
+### Story 12.1: Engine attribute rule
+
+As an engineer,
+I want an engine rule that matches on an attribute being in or not in a list,
+So that targeting by any context attribute needs no change to the evaluator.
+
+**Acceptance Criteria:**
+
+**Given** `AttributeIn("country", IN, {US, CA})` **When** evaluated for country US, CA, DE and no country **Then** it matches US and CA only
+**And** `AttributeIn("country", NOT_IN, {US})` matches DE but not US, not a blank value and not a missing attribute (AD-12)
+**And** a blank name, empty values or a blank value is rejected by the constructor
+**And** `Evaluator`, `EvaluationContext` and the enforcer rule are unchanged, and the tests were written first and seen failing (AD-1, AD-2)
+
+### Story 12.2: Attribute rules in the admin API and evaluation
+
+As an editor,
+I want to save attribute rules through the API and have evaluation honour them,
+So that flags can target by attribute in each environment.
+
+**Acceptance Criteria:**
+
+**Given** a valid `{"type":"attribute","attribute":"country","operator":"in","values":["US","CA"]}` rule **When** I save it in dev as an editor **Then** it is stored, the audit summary reads "added rule: country in US, CA", and `/api/evaluate` returns the expected values with `ruleType: "attribute"` (AD-13)
+**And** a missing operator, a name not matching `AttributeNames.PATTERN`, no values or a malformed value returns 400 problem+json naming the field, e.g. `rules[0].values[1]` (AD-14)
+**And** `EvaluateApiTest.responseContainsResultsOnlyNeverRules` passes with an attribute rule present (AD-6)
+**And** an unknown operator (e.g. `"equals"`, `"not in"` with a space) returns 400 naming `rules[0].operator`, and a value with surrounding spaces (e.g. `" US"`) returns 400 naming the value
+**And** flags saved before this change (users, customers and percent rules already in `flag_environment.rules`) still load, evaluate and save unchanged
+**And** the role matrix is unchanged: the same rule in prod is 403 for an editor
+**And** before any backend code changes, `docs/plan.md` records the new rule type and its JSON shape (AGENTS.md: API changes go into the plan first); the user approved the API change in SPEC-attribute-rules
+
+### Story 12.3: Attribute rules for agents over MCP
+
+As an agent operator,
+I want `set_flag_rules` to accept attribute rules,
+So that agents can do everything the dashboard can.
+
+**Acceptance Criteria:**
+
+**Given** an editor API key **When** an agent sets an attribute rule in dev **Then** it succeeds with the same audit as the dashboard, and in prod it is denied
+**And** the `set_flag_rules` input schema and unknown-type message include `attribute`, built from the shared constants (AD-14)
+**And** a malformed attribute name or value over MCP is rejected with the same field path and message as the REST API (e.g. `rules[0].values[1]`)
+**And** a new test fails if any `RuleSpec` `@JsonSubTypes` name is missing from the schema or the message (AD-15)
+
+### Story 12.4: Attribute rules in the admin dashboard
+
+As a product manager,
+I want to add and read attribute rules in the rule editor,
+So that I can release by country without asking an engineer.
+
+**Acceptance Criteria:**
+
+**Given** the dev rules of a flag **When** I add a rule, enter `country`, pick "is one of" and add US and CA, then save **Then** it is saved and the row reads "On for users with country US or CA" (AD-16)
+**And** "is not one of" US reads "users whose country isn't US", and more than two values read "users with country in N values"
+**And** an attribute rule can be edited (name, operator, values) and moved up or down among other rules like existing rule types, and the saved order is what evaluation uses
+**And** a malformed name or value is rejected inline like ID chips, and Discard clears it
+**And** controls have accessible names "Rule N attribute name" and "Rule N values"; existing labels are unchanged so `qa/run.mjs` still passes; `audience.test.ts` and `rules.test.ts` cover the new type
+
+### Story 12.5: Demo storefront shows attribute targeting
+
+As a demo viewer,
+I want to see a flag targeted by country,
+So that the feature is visible end to end.
+
+**Acceptance Criteria:**
+
+**Given** migration `V5__` seeds `free-shipping` ("Free shipping for Canada") with `country in [CA]` enabled in prod, Otherwise OFF, and in dev enabled with no rules and Otherwise ON, like the other seed flags **When** I view the storefront as Ben (CA) **Then** the free-shipping block shows and the debug panel says "matched rule 1 (attribute)"
+**And** Ana and Cy (US), Dee (DE), Eli and the anonymous visitor (no country) don't see it
+**And** existing storefront behaviour for the other flags is unchanged, and the top 25 QA cases still pass
+**And** README (rule types, assumptions, API) and the PRD (FR-4, FR-7) describe the new rule type
