@@ -30,7 +30,8 @@ class McpConfig {
             given (admin, editor or viewer). Call whoami to see exactly what you may change.
             Model: each flag is ON/OFF per environment (dev, prod). When ON, its rules are checked in order and the \
             first match decides; if none matches, the 'otherwise' value is served. Rules target user IDs, customer \
-            IDs, or a deterministic percentage of users.
+            IDs, a deterministic percentage of users, or a context attribute the app sends (e.g. country) being in \
+            or not in a list of values.
             Changes need the environment's current version (from get_flag); if someone else changed it first you \
             get a conflict: re-read and retry. Every change is recorded in the audit log under this key's name.""";
 

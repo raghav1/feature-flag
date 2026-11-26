@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.flags.backend.HttpUser;
 import dev.flags.backend.TestcontainersConfig;
+import dev.flags.backend.contexts.AttributeNames;
+import dev.flags.backend.contexts.ContextIds;
+import dev.flags.backend.flags.rules.RuleSpec;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -339,6 +342,83 @@ class McpApiTest {
     }
 
     @Test
+    void everyRuleTypeIsInTheSetFlagRulesSchemaAndItsErrorMessage() throws Exception {
+        McpSyncClient agent = connectAs("ADMIN");
+        McpSchema.Tool setRules = agent.listTools().tools().stream()
+                .filter(t -> t.name().equals("set_flag_rules")).findFirst().orElseThrow();
+        JsonNode variants = json.valueToTree(setRules.inputSchema()).at("/properties/rules/items/oneOf");
+        List<String> schemaTypes = new ArrayList<>();
+        variants.forEach(v -> schemaTypes.add(v.at("/properties/type/const").asText()));
+
+        assertThat(schemaTypes).as("set_flag_rules oneOf").containsExactlyInAnyOrderElementsOf(RuleSpec.typeNames());
+
+        String unknown = error(call(agent, "set_flag_rules", Map.of("key", "new-dashboard", "environment", "prod", "otherwise", false,
+                "version", 0, "rules", List.of(Map.of("type", "region", "regions", List.of("EU"))))));
+        assertThat(unknown).contains(RuleSpec.typeNames());
+    }
+
+    @Test
+    void attributeRuleSchemaUsesTheSharedValidationRules() throws Exception {
+        JsonNode attribute = null;
+        for (JsonNode v : json.valueToTree(connectAs("VIEWER").listTools().tools().stream()
+                .filter(t -> t.name().equals("set_flag_rules")).findFirst().orElseThrow().inputSchema())
+                .at("/properties/rules/items/oneOf")) {
+            if (v.at("/properties/type/const").asText().equals("attribute")) {
+                attribute = v;
+            }
+        }
+        assertThat(attribute).as("attribute variant").isNotNull();
+        assertThat(attribute.at("/properties/attribute/pattern").asText()).isEqualTo(AttributeNames.PATTERN);
+        assertThat(attribute.at("/properties/values/items/pattern").asText()).isEqualTo(ContextIds.PATTERN);
+        assertThat(json.convertValue(attribute.at("/properties/operator/enum"), List.class)).containsExactly("in", "not_in");
+        assertThat(json.convertValue(attribute.at("/required"), List.class)).containsExactlyInAnyOrder("type", "attribute", "operator", "values");
+    }
+
+    @Test
+    void anEditorAgentSavesAttributeRulesInDevButNotProd() throws Exception {
+        String flag = unique("geo");
+        assertThat(admin.send("POST", "/api/flags", "{\"key\":\"%s\"}".formatted(flag)).statusCode()).isEqualTo(201);
+        McpSyncClient editor = connectAs("EDITOR");
+        Map<String, Object> rule = Map.of("type", "attribute", "attribute", "country", "operator", "in", "values", List.of("US", "CA"));
+
+        JsonNode saved = ok(call(editor, "set_flag_rules", Map.of("key", flag, "environment", "dev", "otherwise", false, "version", 0,
+                "rules", List.of(rule))));
+        assertThat(saved.at("/rules/0/type").asText()).isEqualTo("attribute");
+        assertThat(saved.at("/rules/0/operator").asText()).isEqualTo("in");
+        assertThat(saved.at("/rules/0/serve").asBoolean()).isTrue();
+        JsonNode audit = json.readTree(admin.send("GET", "/api/audit?flag=" + flag, null).body());
+        assertThat(audit.path(0).path("summary").asText()).isEqualTo("added rule: country in US, CA");
+        assertThat(audit.path(0).path("actor").asText()).startsWith("key:editor-bot");
+
+        assertThat(error(call(editor, "set_flag_rules", Map.of("key", flag, "environment", "prod", "otherwise", false, "version", 0,
+                "rules", List.of(rule))))).contains("(editor) may not change prod");
+        JsonNode prod = json.readTree(admin.send("GET", "/api/flags/" + flag, null).body()).at("/environments/prod");
+        assertThat(prod.path("rules")).as("prod rules untouched").isEmpty();
+        assertThat(prod.path("version").asInt()).isZero();
+        assertThat(json.readTree(admin.send("GET", "/api/audit?flag=" + flag, null).body())).as("denied: no audit row").hasSize(2);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', textBlock = """
+            bad value        | rules[0].values[1]: must start with a letter or digit and use only letters, digits and _ . : @ - (max 128)
+            unknown operator | rules[0].operator: must be "in" or "not_in"
+            bad name         | rules[0].attribute: must start with a lowercase letter and use only lowercase letters, digits and _ (max 64)
+            """)
+    void invalidAttributeRulesGetTheSameFieldErrorsAsRest(String scenario, String expected) throws Exception {
+        Map<String, Object> rule = switch (scenario) {
+            case "bad value" -> Map.of("type", "attribute", "attribute", "country", "operator", "in", "values", List.of("US", " CA"));
+            case "unknown operator" -> Map.of("type", "attribute", "attribute", "country", "operator", "equals", "values", List.of("US"));
+            case "bad name" -> Map.of("type", "attribute", "attribute", "Country", "operator", "in", "values", List.of("US"));
+            default -> throw new IllegalArgumentException(scenario);
+        };
+
+        String message = error(call(connectAs("ADMIN"), "set_flag_rules", Map.of("key", "new-dashboard", "environment", "dev",
+                "otherwise", true, "version", 0, "rules", List.of(rule))));
+
+        assertThat(message).isEqualTo("Invalid rules. " + expected);
+    }
+
+    @Test
     void badArgumentsAreToolErrorsNotCrashes() throws Exception {
         McpSyncClient agent = connectAs("ADMIN");
 
@@ -351,7 +431,7 @@ class McpApiTest {
                 .isEqualTo("'version' must be a whole number.");
         assertThat(error(call(agent, "set_flag_rules", Map.of("key", "new-dashboard", "environment", "prod", "otherwise", false, "version", 0,
                 "rules", List.of(Map.of("type", "country", "countries", List.of("NZ")))))))
-                .isEqualTo("Unknown rule type 'country'. Use users, customers or percent.");
+                .isEqualTo("Unknown rule type 'country'. Use users, customers, percent or attribute.");
         assertThat(error(call(agent, "set_flag_rules", Map.of("key", "new-dashboard", "environment", "prod", "otherwise", false, "version", 0,
                 "rules", List.of(Map.of("type", "percent", "percent", 101))))))
                 .isEqualTo("Invalid rules. rules[0].percent: must be less than or equal to 100");

@@ -43,6 +43,15 @@ public interface RuleSpec {
                 .toList();
     }
 
+    /** "users, customers, percent or attribute": every registered type, for "unknown rule type" messages (REST and MCP). */
+    static String typeChoices() {
+        List<String> names = typeNames();
+        if (names.size() == 1) {
+            return names.get(0);
+        }
+        return String.join(", ", names.subList(0, names.size() - 1)) + " or " + names.get(names.size() - 1);
+    }
+
     static Boolean defaultServe(Boolean serve) {
         return serve == null ? Boolean.TRUE : serve;
     }

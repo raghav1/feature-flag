@@ -187,6 +187,7 @@ These are also recorded in the README under Assumptions.
   - A bad field is a 400 naming it: `rules[0].operator`, `rules[0].attribute`, `rules[0].values`, `rules[0].values[1]`. The unknown-type message lists every rule type.
 - Audit wording: "country in US, CA", "country not in US (serves OFF)".
 - `/api/evaluate` reports `ruleType: "attribute"` and the rule index only, never the attribute name or values. The role matrix is unchanged.
+- MCP `set_flag_rules` accepts the same rule JSON with the same validation and field errors. Its input schema's attribute variant is built from `AttributeNames` and `ContextIds`, and `McpApiTest` fails if any registered rule type is missing from the schema or the unknown-type message (Story 12.3). The server instructions mention attribute rules.
 
 ## Added after the plan: agents (MCP) and API keys
 

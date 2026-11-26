@@ -53,3 +53,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-12-2-attribute-rules-in-the-admin-api-and-evaluation.md`
   summary: AttributeNames.isValid is unused in production and not null-safe — use it in Story 12.3 (MCP) or remove it.
   evidence: Blind Hunter and Repo Invariants note.
+- source_spec: `_bmad-output/implementation-artifacts/spec-12-3-attribute-rules-for-agents-over-mcp.md`
+  summary: Story 12.5 README pass must also cover the Agents (MCP) table's set_flag_rules row ("users, customers, percent or attribute") and the test counts (stale since 12.2).
+  evidence: Repo Invariants FAIL 19 on 12.2 and again on 12.3; README is scoped to 12.5.

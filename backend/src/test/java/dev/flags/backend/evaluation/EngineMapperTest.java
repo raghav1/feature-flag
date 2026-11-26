@@ -64,4 +64,9 @@ class EngineMapperTest {
     void typeNamesListsEverySubtypeInRegistrationOrder() {
         assertThat(RuleSpec.typeNames()).containsExactly("users", "customers", "percent", "attribute");
     }
+
+    @Test
+    void typeChoicesIsAnEnglishListOfEveryType() {
+        assertThat(RuleSpec.typeChoices()).isEqualTo("users, customers, percent or attribute");
+    }
 }
