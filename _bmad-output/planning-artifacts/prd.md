@@ -190,7 +190,7 @@ See README → "What's missing": a server SDK, scale-out, MCP OAuth and rate lim
 
 1. The backend test JVM sometimes takes ~30 s to exit after tests pass; cause not diagnosed.
 2. Why MockMvc `csrf()` makes the XSRF cookie disappear in the shared context; trigger confirmed, cause not explained.
-3. CI: `./test.sh` on every push (planned for the BMAD pilot, phase 3).
+3. CI for the QA runner. (`./test.sh` runs in GitHub Actions since the BMAD pilot, phase 3.)
 
 ## 9. Assumptions Index
 

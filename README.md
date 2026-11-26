@@ -249,7 +249,7 @@ Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, 
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 428 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. GitHub Actions runs the same script on every pull request and push to `main` (`.github/workflows/test.yml`). 428 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -298,7 +298,7 @@ cd qa && npm ci && node run.mjs --reset && node make-video.mjs && node report.mj
   - login rate limiting;
   - user management instead of seeded users;
   - audit pagination;
-  - CI running `./test.sh` (and the QA runner) on every push;
+  - CI for the QA runner (`./test.sh` already runs in GitHub Actions on every pull request and push to `main`);
   - sessions that survive a backend restart (today they live in memory, so a restart signs everyone out).
 - **Known issue (tests only):** the backend test JVM sometimes takes ~30 s to exit after all tests pass Results are unaffected; the cause isn't diagnosed yet.
 - **Known issue (tests only):** MockMvc's `csrf()` helper changes the CSRF filter in Spring's shared test context, which made one cookie assertion depend on test order. The trigger is confirmed, but why the cookie disappears is not yet explained. Real CSRF behaviour is covered over real HTTP instead. Details in [docs/ai-log.md](docs/ai-log.md#known-issue-mockmvc-csrf-changes-the-shared-csrf-filter).
