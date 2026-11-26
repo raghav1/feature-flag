@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-11-25 against 4b4cc13. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-25 against e1d1ed2. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## feature-flags
 
@@ -21,6 +21,7 @@ Internal feature-flag service: admin dashboard, Java 21 / Spring Boot 3 backend 
 - MCP server: tools in `AdminTools` under `backend/.../mcp`; agent API keys under `backend/.../apikeys`.
 - Shared design tokens: `design/tokens.css`, imported by both apps' `styles.css`.
 - Rule semantics in plain English for the admin: `admin/src/audience.ts`.
+- BMAD team customizations and the review checklist in `_bmad/custom/`. Never edit `.claude/skills/bmad-*` or generated `_bmad/` files, which the installer overwrites; change behaviour in `_bmad/custom/`.
 
 ## Running and verifying
 

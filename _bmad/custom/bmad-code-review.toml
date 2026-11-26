@@ -1,0 +1,21 @@
+# feature-flags team overrides for bmad-code-review (committed; applies to everyone).
+# Merge rules: scalars override, arrays append, arrays of tables merge by `id`.
+
+[workflow]
+
+persistent_facts = [
+  "file:{project-root}/_bmad-output/planning-artifacts/architecture.md",
+  "This repo is public: a secret, `ffk_` token, `.env` file, personal path or email in a diff is always a blocking finding.",
+]
+
+# Same reviewer as in bmad-build, so ad hoc reviews apply the repo's rules too.
+[[workflow.review_layers]]
+id = "repo-invariants"
+name = "Repo Invariants Reviewer"
+instruction = """
+Launch a context-free subagent with this prompt:
+You review a diff against the feature-flags repo's own rules. Read `{project-root}/_bmad/custom/review-checklist.md` completely, then read `{project-root}/AGENTS.md` and `{project-root}/_bmad-output/planning-artifacts/architecture.md` for the rules it cites.
+Review content: the unified diff at `{diff_file}`. Read that file — it is the content under review. Open other repo files only to confirm a finding.
+Answer every checklist item as PASS, FAIL or N/A. For each FAIL give the file and line from the diff, the rule (AD-n or AGENTS.md line) and a one-line fix. List FAILs first.
+Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
+"""
