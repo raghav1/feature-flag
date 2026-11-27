@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-25-2026 21:30
-last_updated: 11-26-2026 16:30
+last_updated: 11-26-2026 17:30
 project: feature-flags
 project_key: NOKEY
 tracking_system: file-system
@@ -94,10 +94,57 @@ development_status:
   11-1-automated-top-25-cases: done
   epic-11-retrospective: optional
 
-  epic-12: in-progress
-  12-1-engine-attribute-rule: review
-  12-2-attribute-rules-in-the-admin-api-and-evaluation: review
-  12-3-attribute-rules-for-agents-over-mcp: review
-  12-4-attribute-rules-in-the-admin-dashboard: review
-  12-5-demo-storefront-shows-attribute-targeting: review
-  epic-12-retrospective: optional
+  epic-12: done
+  12-1-engine-attribute-rule: done
+  12-2-attribute-rules-in-the-admin-api-and-evaluation: done
+  12-3-attribute-rules-for-agents-over-mcp: done
+  12-4-attribute-rules-in-the-admin-dashboard: done
+  12-5-demo-storefront-shows-attribute-targeting: done
+  epic-12-retrospective: done
+action_items:
+  - id: "epic-12-retro-item-1-fix-stale-qa-docs-readme-162-cases-and-l"
+    epic: 12
+    action: "Fix stale QA docs (README 162 cases and latest-run claim, plan.md 25/25,
+      QA plan ADM-LIST-02, DEMO-DBG-01, MCP-CHG-05, README L3, plan.md:148)"
+    owner: "Raghav"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"
+  - id: "epic-12-retro-item-2-delete-unused-attributenames-isvalid-and"
+    epic: 12
+    action: "Delete unused AttributeNames.isValid and its test, or use it"
+    owner: "Raghav"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"
+  - id: "epic-12-retro-item-3-derive-the-mcp-operator-enum-from-the-ba"
+    epic: 12
+    action: "Derive the MCP operator enum from the backend; stop the admin dropdown
+      coercing unknown operators to in"
+    owner: "Raghav"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"
+  - id: "epic-12-retro-item-4-readiness-gate-check-stories-are-vertica"
+    epic: 12
+    action: "Readiness gate: check stories are vertically shippable and story specs
+      list the epic spine in context"
+    owner: "Raghav"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"
+  - id: "epic-12-retro-item-5-decide-whether-in-build-review-replaces"
+    epic: 12
+    action: "Decide whether in-build review replaces bmad-code-review for dispatch
+      stories"
+    owner: "Raghav"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"
+  - id: "epic-12-retro-item-6-run-the-qa-runner-in-ci-or-add-component"
+    epic: 12
+    action: "Run the QA runner in CI or add component tests"
+    owner: "Raghav"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"
+  - id: "epic-12-retro-item-7-record-epic-12-agent-lessons-in-docs-ai"
+    epic: 12
+    action: "Record Epic 12 agent lessons in docs/ai-log.md"
+    owner: "agent"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md"

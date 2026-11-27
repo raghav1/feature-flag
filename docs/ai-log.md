@@ -258,3 +258,19 @@ How the coding agent (Claude Code) was directed, and where it needed correcting.
 - **Claude Code + MCP:** installed the Claude Code CLI and added the server with `claude mcp add` (shows `✔ Connected`). The admin key was pasted into chat, so it should be revoked after the demo; CLAUDE.md now says never to commit tokens.
 - **Docs pass:** README, CLAUDE.md and plan.md brought in line with the code: test counts (428), the MCP path in the architecture, `design/` and `qa/`, the QA commands, the storefront's flag-driven theme, known issues (the ~30 s test-JVM exit), and the workflow now that every phase is done.
 
+
+## BMAD pilot: Epic 12 (attribute rules) through the BMAD method
+
+- **Prompt:** move the repo onto BMAD 6.12 (install, adopt CLAUDE.md into AGENTS.md, backfill PRD/architecture/epics, CI, team rules as `_bmad/custom/` overrides), then build one feature end to end: spec → epic architecture → stories → readiness gate → `bmad-build` per story → retrospective. Retro: `_bmad-output/implementation-artifacts/epic-12-retro-2026-11-26.md`.
+- **Caught before merge by BMAD's gates and reviewers, not by tests:**
+  - an operator typo in stored rules would silently invert targeting (12.2, Edge Case Hunter);
+  - the MCP server instructions still listed three rule types (12.3);
+  - the admin's operator dropdown had no test that could fail if inverted (12.4, Verification Gap) — now QA case ADM-RULE-ATTR-01;
+  - the V5 seed would stop the backend starting on an upgrade with an existing `free-shipping` flag (12.5) — now idempotent with an upgrade-path test.
+- **Agent slips, caught and corrected:**
+  - my phase-3 customization left the repo-invariants reviewer off the oneshot route, and later its scope skipped `docs/`;
+  - story specs didn't list the epic architecture spine in `context:`, so a dev subagent saw AD-13/14 cited but undefined;
+  - my own spec tables had wrong rows (wording, spaces in values); BMAD's matrix audit stopped for the user instead of editing expectations to fit the code;
+  - the readiness gate passed stories that left an inconsistent product between 12.2 and 12.4.
+- **Environment:** the VS Code Java extension compiles into `target/` while Maven runs, producing `java.lang.Error` in every test; use `clean`. No `java` on PATH; `JAVA_HOME=/opt/homebrew/opt/openjdk` for local Maven.
+- **Cost:** about 1.5M subagent tokens for the epic; review layers ran in parallel; roughly a third of review findings became patches.
