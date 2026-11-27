@@ -223,11 +223,11 @@ const CASES = [
     expected: "Every switch disabled; no New flag, rule editing, edit, delete or API keys; notes say why",
     async fn(t) {
       const page = await adminPage(t, "viewer");
-      await t.step("Flags list: all six switches are disabled; no New flag button, no API keys tab");
+      await t.step("Flags list: all eight switches are disabled; no New flag button, no API keys tab");
       await expect(page.getByRole("button", { name: /New flag/ })).toHaveCount(0);
       await expect(page.getByRole("button", { name: /API keys/ })).toHaveCount(0);
       const switches = await page.getByRole("switch").all();
-      expect(switches.length).toBe(6);
+      expect(switches.length).toBe(8); // 4 seeded flags (V2 + free-shipping in V5) × dev and prod
       for (const s of switches) await expect(s).toBeDisabled();
       await t.spot(page.locator(".flag-envs").first());
       await t.hold(2000);
@@ -242,7 +242,7 @@ const CASES = [
       await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
       await t.spot(note);
       await t.hold(2500);
-      t.note("6/6 switches disabled; read-only notes shown; no Add rule, Save, Edit description, Delete or API keys.");
+      t.note("8/8 switches disabled; read-only notes shown; no Add rule, Save, Edit description, Delete or API keys.");
     },
   },
   {
@@ -472,12 +472,13 @@ const CASES = [
       await t.step("Click Dev");
       await page.getByRole("radio", { name: "Dev" }).click();
       await expect(page.locator(".page")).toHaveAttribute("data-theme", "dark");
-      for (const f of ["new-dashboard", "beta-reports", "dark-mode"]) await expectDebug(page, f, "ON", "no rule matched → Otherwise ON");
+      for (const f of ["new-dashboard", "beta-reports", "dark-mode", "free-shipping"]) await expectDebug(page, f, "ON", "no rule matched → Otherwise ON");
       await expect(page.locator('main [data-flag="new-dashboard"]')).toBeVisible();
+      await expect(page.locator('main [data-flag="free-shipping"]')).toBeVisible();
       await t.spot(debugRow(page, "dark-mode"));
       await t.step("Same user, dev config: all ON via \"Otherwise ON\"; dark-mode ON, so the store is dark");
       await t.hold(3200);
-      t.note("prod: light, classic home, all OFF. dev: data-theme=dark, new dashboard + beta report, all three flags ON 'no rule matched → Otherwise ON'.");
+      t.note("prod: light, classic home, all OFF. dev: data-theme=dark, new dashboard + beta report + free shipping, all four flags ON 'no rule matched → Otherwise ON'.");
     },
   },
   {

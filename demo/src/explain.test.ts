@@ -9,6 +9,9 @@ describe("explain", () => {
     expect(explain({ value: true, reason: "RULE_MATCH", ruleIndex: 2, ruleType: "percent" }, "prod")).toBe(
       "matched rule 3 (% rollout)",
     );
+    expect(explain({ value: true, reason: "RULE_MATCH", ruleIndex: 0, ruleType: "attribute" }, "prod")).toBe(
+      "matched rule 1 (attribute)",
+    );
   });
 
   it("says when a matching rule serves OFF", () => {

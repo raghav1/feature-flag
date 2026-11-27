@@ -18,7 +18,7 @@ docker compose up --build
 | Demo storefront | http://localhost:5174 | no login |
 | Backend health | http://localhost:8080/actuator/health | |
 
-The first build takes a few minutes; Maven and npm download dependencies. Seed data (three flags, three logins, demo users) loads on first start. To start over from seed data, run `docker compose down -v`.
+The first build takes a few minutes; Maven and npm download dependencies. Seed data (four flags, three logins, demo users) loads on first start. To start over from seed data, run `docker compose down -v`.
 
 If a port is already taken, override it: `ADMIN_PORT`, `DEMO_PORT`, `BACKEND_PORT`, `POSTGRES_PORT` (Postgres listens on `127.0.0.1:5433` by default).
 
@@ -34,7 +34,7 @@ If a port is already taken, override it: `ADMIN_PORT`, `DEMO_PORT`, `BACKEND_POR
 
 ## Two-minute walkthrough
 
-1. Open the **demo** (http://localhost:5174). **Viewing as** Ben (acme) sees the *New dashboard* and *Beta reports* cards. The debug panel says why: "matched rule 1 (user ID list)", "matched rule 1 (customer list)", "flag is OFF in prod".
+1. Open the **demo** (http://localhost:5174). **Viewing as** Ben (acme, CA) sees the *New dashboard*, *Beta reports* and *Free shipping* cards. The debug panel says why: "matched rule 1 (user ID list)", "matched rule 1 (customer list)", "matched rule 1 (attribute)" (his country is CA), "flag is OFF in prod".
 2. Switch to **Dee**: still the new dashboard, this time via "rule 3 (% rollout)". Switch to **Eli**: nothing matches, so you get the classic home page. Click **Dev** in the header: everything is ON and the store goes dark (`dark-mode`).
 3. Open the **admin** (http://localhost:5173) and sign in as `editor`. Each flag is a row that says whether it's **Live, Partial or Off in prod** and who gets it, in plain words. The prod switches are locked for an editor; click a row to expand it, and dev is editable.
 4. Sign in as `admin`, expand `dark-mode`, and in **Production** change the rollout to 100% and save. Turn on its prod switch: a dialog says who will get it before anything changes.
@@ -49,7 +49,7 @@ From the brief's **must-haves**:
 | Boolean flags with key + description; dev and prod each with their own on/off state and rules | `flag` + `flag_environment` tables; admin flag list with expandable rows |
 | Admin UI: list, toggle per environment, edit rules | `admin/` (React + TanStack Query) |
 | Audit log: flag, environment, what changed, when, who | `audit_event`; plain-words summaries such as "rollout 5% → 10%" |
-| Unit tests on the evaluation engine: rules, rollout determinism, defaults | `engine/src/test`: 91 tests |
+| Unit tests on the evaluation engine: rules, rollout determinism, defaults | `engine/src/test`: 103 tests |
 | Separate demo web app that reads the flags | `demo/`: mock storefront, "Viewing as" user switcher, Dev/Prod switch, debug panel |
 
 Beyond them:
@@ -90,13 +90,14 @@ Beyond them:
 
 ## How evaluation works
 
-For one flag, one environment and one user context (`userId` plus attributes such as `customer`):
+For one flag, one environment and one user context (`userId` plus attributes such as `customer` or `country`):
 
 1. If the flag is **disabled** in that environment, the answer is OFF (`FLAG_OFF`).
 2. Otherwise the **rules** are checked top to bottom and the **first match wins**. Each rule serves ON or OFF (`RULE_MATCH`):
    - **User ID in** a list
    - **Customer in** a list (the `customer` attribute)
    - **Percentage rollout**
+   - **Attribute in / not in** a list: any context attribute, e.g. `country in [US, CA]`. Values match exactly (case-sensitive); a missing or blank attribute never matches, for either operator
 3. If nothing matches, the flag serves its **Otherwise** value, which defaults to OFF (`OTHERWISE`).
 
 **Percentage rollouts are deterministic per user.** Each user is hashed into one of 10,000 buckets:
@@ -112,7 +113,7 @@ The rollout matches when `bucket < percent × 100`. So:
 
 Users without an ID never match a rollout. The hash is pinned by golden test vectors, which were derived from a separate Python implementation rather than captured from the Java one.
 
-New rule types plug in as a new `Rule` class; the evaluator doesn't change (a test proves it with a rule on an attribute the engine has never heard of).
+New rule types plug in as a new `Rule` class; the evaluator doesn't change (a test proves it with a rule on an attribute the engine has never heard of). The attribute rule was added exactly that way.
 
 ## API
 
@@ -141,13 +142,14 @@ All endpoints need a login session except `POST /api/auth/login` and `POST /api/
 | POST | `/api/evaluate` | `X-SDK-Key` header | `{context: {userId?, attributes?}, flags?}` → results only |
 | GET | `/api/evaluate/stream?sdkKey=` | SDK key (query param or header) | server-sent events: `ready`, then `changed {environment, flagKey}` after each committed change |
 
-Rule user and customer IDs must start with a letter or digit and use only letters, digits and `_ . : @ -` (max 128); anything else is a 400 naming the field, e.g. `rules[0].userIds[1]`. IDs the service has never seen are allowed (you may target someone before their first visit).
+Rule user and customer IDs, and attribute rule values, must start with a letter or digit and use only letters, digits and `_ . : @ -` (max 128); anything else is a 400 naming the field, e.g. `rules[0].userIds[1]` or `rules[0].values[1]`. IDs the service has never seen are allowed (you may target someone before their first visit). Attribute names are lowercase (`^[a-z][a-z0-9_]{0,63}$`, e.g. `country`, `app_version`), and `operator` is required: `in` or `not_in`.
 
 Rules are an ordered list; `serve` defaults to `true`:
 
 ```json
 [{"type": "users", "userIds": ["u_102", "u_207"]},
  {"type": "customers", "customerIds": ["acme"]},
+ {"type": "attribute", "attribute": "country", "operator": "not_in", "values": ["DE"]},
  {"type": "percent", "percent": 10, "serve": true}]
 ```
 
@@ -159,15 +161,16 @@ The SDK key decides the environment (`dev-sdk-key` / `prod-sdk-key` locally; set
 
 ```json
 POST /api/evaluate   X-SDK-Key: prod-sdk-key
-{"context": {"userId": "u_303", "attributes": {"customer": "zenith"}}}
+{"context": {"userId": "u_303", "attributes": {"customer": "zenith", "country": "DE"}}}
 
 {"environment": "prod",
  "flags": {"beta-reports":  {"value": false, "reason": "OTHERWISE"},
            "dark-mode":     {"value": false, "reason": "FLAG_OFF"},
+           "free-shipping": {"value": false, "reason": "OTHERWISE"},
            "new-dashboard": {"value": true,  "reason": "RULE_MATCH", "ruleIndex": 2, "ruleType": "percent"}}}
 ```
 
-- `ruleIndex` (zero-based) and `ruleType` appear only for `RULE_MATCH`.
+- `ruleIndex` (zero-based) and `ruleType` (`users`, `customers`, `percent` or `attribute`) appear only for `RULE_MATCH`. An attribute match never says which attribute or values.
 - Leave out `flags` to get every flag. Unknown keys come back OFF with `FLAG_NOT_FOUND`, not an error.
 - A missing context is anonymous, and null attributes are ignored.
 
@@ -199,16 +202,16 @@ flags.state(user);                              // { status: "fresh" | "stale" |
 
 ### Demo users
 
-They're fictional, and each takes a different path through the seeded prod rules for `new-dashboard` (users u_102, u_207 → customers acme → 10% rollout → otherwise OFF):
+They're fictional, and each takes a different path through the seeded prod rules for `new-dashboard` (users u_102, u_207 → customers acme → 10% rollout → otherwise OFF). The demo sends each user's customer and country as attributes; `free-shipping` targets `country in [CA]` in prod (in dev it's ON for everyone):
 
-| User | Customer | new-dashboard (prod) | beta-reports (prod) |
-|---|---|---|---|
-| Ana · u_102 | – | ON, rule 1 (user list) | OFF |
-| Ben · u_207 | acme | ON, rule 1 (user list) | ON (customer) |
-| Cy · u_350 | acme | ON, rule 2 (customer list) | ON (customer) |
-| Dee · u_303 | zenith | ON, rule 3 (in the 10%) | OFF |
-| Eli · u_412 | zenith | OFF (outside the 10%) | OFF |
-| Anonymous | – | OFF (a rollout needs a user ID) | OFF |
+| User | Customer | Country | new-dashboard (prod) | beta-reports (prod) | free-shipping (prod) |
+|---|---|---|---|---|---|
+| Ana · u_102 | – | US | ON, rule 1 (user list) | OFF | OFF |
+| Ben · u_207 | acme | CA | ON, rule 1 (user list) | ON (customer) | ON, rule 1 (attribute) |
+| Cy · u_350 | acme | US | ON, rule 2 (customer list) | ON (customer) | OFF |
+| Dee · u_303 | zenith | DE | ON, rule 3 (in the 10%) | OFF | OFF |
+| Eli · u_412 | zenith | – | OFF (outside the 10%) | OFF | OFF (no country) |
+| Anonymous | – | – | OFF (a rollout needs a user ID) | OFF | OFF (no country) |
 
 ## Agents (MCP)
 
@@ -231,7 +234,7 @@ For other clients (Claude Desktop, Cursor, …) it's an HTTP MCP server at `http
 | `whoami`: the key's identity, role and exactly what it may change | `create_flag` |
 | `list_environments`, `list_flags`, `get_flag` | `update_flag_description` |
 | `get_audit_log`: plain-words history; search, filters and paging | `set_flag_enabled`: needs the env's `version` |
-| `suggest_ids`: user/customer IDs the service has seen | `set_flag_rules`: replaces the ordered rules + Otherwise; needs `version` |
+| `suggest_ids`: user/customer IDs the service has seen | `set_flag_rules`: replaces the ordered rules (users, customers, percent or attribute) + Otherwise; needs `version` |
 | `find_unseen_ids`: likely typos | `delete_flag`: `confirm_key` must repeat the key |
 
 Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, so clients can ask before running them. A stale `version` is a conflict, so an agent can't overwrite a change it hasn't seen.
@@ -249,14 +252,14 @@ Read tools are marked read-only and `delete_flag`/`set_flag_rules` destructive, 
 ./test.sh
 ```
 
-It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. 428 tests in total:
+It needs only Docker, and uses a local JDK 21+ / Node 20+ if present (otherwise those steps run in containers). Backend tests run against a real Postgres via Testcontainers. GitHub Actions runs the same script on every pull request and push to `main` (`.github/workflows/test.yml`). 510 tests in total:
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `engine` | 91 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
-| `backend` | 211 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules, ID suggestions; **MCP with a real MCP client**: key auth (missing, wrong, revoked, expired, session-vs-key), every tool, the role matrix through tools, a full flag lifecycle driven by an agent |
+| `engine` | 103 | first-match order, flag off, Otherwise, every rule type, null/blank context, murmur3 reference vectors, golden buckets, monotonic rollouts, distribution within ±1% over 100k users, independence between flags, open/closed rule extension |
+| `backend` | 266 | every cell of the role matrix over HTTP with real logins (and as a unit), an editor trying every route into prod, permissions shown to the UI matching real enforcement, CSRF and the live change stream over real HTTP, validation, conflicts, plain-words audit, `/evaluate` never leaking rules, ID suggestions; **MCP with a real MCP client**: key auth (missing, wrong, revoked, expired, session-vs-key), every tool, the role matrix through tools, a full flag lifecycle driven by an agent |
 | `sdk` | 21 | cache hits and fallbacks, request shape, dedupe, outages (stale, unavailable, HTTP errors, timeouts), persistence across reloads, polling, live refresh, catch-up after reconnect, reconnect backoff, LRU eviction |
-| `admin`, `demo` | 105 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the shared `design/tokens.css`), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked and discardable), relative times, reason explanations, URL state, API key status and connection snippets |
+| `admin`, `demo` | 120 | colour contrast ≥ 4.5:1 for every text/background token pair in light and dark (read from the shared `design/tokens.css`), 4px spacing grid, theme preference, activity day-grouping, change types and search highlighting, plain-English audience and Live/Partial/Off status, prod-change wording, rule drafts (ID chips, pending text saved, malformed IDs blocked and discardable), relative times, reason explanations, URL state, API key status and connection snippets |
 
 **End-to-end in a browser.** `./test.sh` has no browser tests (per the brief). On top of it:
 - [docs/qa-test-plan.md](docs/qa-test-plan.md) is the full manual QA plan (161 cases across admin, storefront, MCP, end-to-end and security, plus 9 regression checks).
@@ -270,7 +273,7 @@ cd qa && npm ci && node run.mjs --reset && node make-video.mjs && node report.mj
 ## Assumptions
 
 1. A flag that's ON with no rules serves its **Otherwise** value (default OFF). For "on for everyone", set Otherwise → ON or add a 100% rule.
-2. Rule types are user-ID list, customer list and percentage rollout. The engine accepts new rule types without changes to the evaluator.
+2. Rule types are user-ID list, customer list, percentage rollout and attribute in / not in a list (added in Epic 12). The engine accepts new rule types without changes to the evaluator.
 3. Percentage rollouts bucket by `userId`. A request with no user ID skips percentage rules.
 4. A user lands in the same rollout bucket in dev and prod.
 5. Flag keys can't be renamed, since a rename would re-bucket everyone. Descriptions can be edited.
@@ -287,6 +290,8 @@ cd qa && npm ci && node run.mjs --reset && node make-video.mjs && node report.mj
 16. Live updates may take up to ~30 s to resume after a long outage (reconnect backoff is capped at 30 s), and polling refreshes values every 30 s regardless.
 17. An API key is a fixed role rather than a list of fine-grained scopes, and only admins create keys. Keys never manage keys.
 18. Rule IDs must be well-formed (letters, digits and `_ . : @ -`, max 128), but needn't have been seen before.
+19. Attribute names in rules are lowercase (`^[a-z][a-z0-9_]{0,63}$`), and matching is exact, so SDK callers must send lowercase attribute keys (`app_version`, not `appVersion`); `/api/evaluate` accepts any key, but a camelCase one can never be targeted.
+20. Attribute names and values are never suggested in the admin or flagged as "never seen"; seen-ID tracking covers user and customer IDs only.
 
 ## What's missing, and how I'd build it
 
@@ -298,7 +303,7 @@ cd qa && npm ci && node run.mjs --reset && node make-video.mjs && node report.mj
   - login rate limiting;
   - user management instead of seeded users;
   - audit pagination;
-  - CI running `./test.sh` (and the QA runner) on every push;
+  - CI for the QA runner (`./test.sh` already runs in GitHub Actions on every pull request and push to `main`);
   - sessions that survive a backend restart (today they live in memory, so a restart signs everyone out).
 - **Known issue (tests only):** the backend test JVM sometimes takes ~30 s to exit after all tests pass Results are unaffected; the cause isn't diagnosed yet.
 - **Known issue (tests only):** MockMvc's `csrf()` helper changes the CSRF filter in Spring's shared test context, which made one cookie assertion depend on test order. The trigger is confirmed, but why the cookie disappears is not yet explained. Real CSRF behaviour is covered over real HTTP instead. Details in [docs/ai-log.md](docs/ai-log.md#known-issue-mockmvc-csrf-changes-the-shared-csrf-filter).

@@ -1,4 +1,4 @@
-import type { EnvironmentState, Rule } from "./api";
+import type { AttributeOperator, EnvironmentState, Rule } from "./api";
 
 /**
  * At-a-glance state of a flag in one environment, as a product manager thinks about it:
@@ -26,6 +26,12 @@ function ids(noun: string, values: string[]): string {
   return `${noun}${values.length > 1 ? "s" : ""} ${list(values)}`;
 }
 
+/** AD-16: "users with country US or CA", "users whose country isn't US", "users with country in 3 values". */
+function attribute(name: string, operator: AttributeOperator, values: string[]): string {
+  const what = values.length > 2 ? `in ${values.length} values` : values.join(" or ");
+  return operator === "in" ? `users with ${name} ${what}` : `users whose ${name} isn't ${what}`;
+}
+
 /** Who a rule targets, in words: "users u_102 and u_207", "customer acme", "10% of users". */
 export function ruleAudience(rule: Rule): string {
   switch (rule.type) {
@@ -35,6 +41,8 @@ export function ruleAudience(rule: Rule): string {
       return ids("customer", rule.customerIds);
     case "percent":
       return `${rule.percent}% of users`;
+    case "attribute":
+      return attribute(rule.attribute, rule.operator, rule.values);
   }
 }
 

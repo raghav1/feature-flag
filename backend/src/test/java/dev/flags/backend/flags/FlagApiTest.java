@@ -12,9 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.flags.backend.ApiTest;
+import dev.flags.backend.flags.rules.RuleSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
@@ -44,6 +46,23 @@ class FlagApiTest extends ApiTest {
         assertThat(dashboard.at("/environments/prod/rules/0/type").asText()).isEqualTo("users");
         assertThat(dashboard.at("/environments/prod/rules/2/percent").asInt()).isEqualTo(10);
         assertThat(getFlag(admin, "dark-mode").at("/environments/prod/enabled").asBoolean()).isFalse();
+    }
+
+    @Test
+    void freeShippingSeedTargetsCanadaInProd() throws Exception {
+        JsonNode flag = getFlag(admin, "free-shipping");
+
+        assertThat(flag.path("description").asText()).isEqualTo("Free shipping for Canada");
+        JsonNode prod = flag.at("/environments/prod");
+        assertThat(prod.path("enabled").asBoolean()).isTrue();
+        assertThat(prod.path("otherwise").asBoolean()).isFalse();
+        assertThat(prod.path("rules")).hasSize(1);
+        assertThat(json.writeValueAsString(prod.path("rules").get(0))).isEqualTo(
+                "{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"in\",\"values\":[\"CA\"],\"serve\":true}");
+        JsonNode dev = flag.at("/environments/dev");
+        assertThat(dev.path("enabled").asBoolean()).isTrue();
+        assertThat(dev.path("otherwise").asBoolean()).isTrue();
+        assertThat(dev.path("rules")).isEmpty();
     }
 
     @Test
@@ -115,7 +134,7 @@ class FlagApiTest extends ApiTest {
                 .andExpect(status().isBadRequest());
         putRules(admin, key, "dev", "[{\"type\":\"country\",\"countries\":[\"NZ\"]}]", false, 0)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Unknown rule type 'country'. Use users, customers or percent."));
+                .andExpect(jsonPath("$.detail").value("Unknown rule type 'country'. Use users, customers, percent or attribute."));
 
         assertThat(version(admin, key, "dev")).isZero();
     }
@@ -155,6 +174,97 @@ class FlagApiTest extends ApiTest {
                 .andExpect(jsonPath("$.version").value(1));
 
         assertThat(getFlag(admin, key).at("/environments/dev/version").asInt()).as("dev untouched").isZero();
+    }
+
+    @Test
+    void editorSavesAnAttributeRuleInDevAndTheAuditSaysItInPlainWords() throws Exception {
+        MockHttpSession editor = login("editor");
+        String key = createFlag(admin, uniqueKey("attr"));
+
+        putRules(editor, key, "dev", "[{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"in\",\"values\":[\"US\",\"CA\"]}]", false, 0)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rules[0].type").value("attribute"))
+                .andExpect(jsonPath("$.rules[0].attribute").value("country"))
+                .andExpect(jsonPath("$.rules[0].operator").value("in"))
+                .andExpect(jsonPath("$.rules[0].values[1]").value("CA"))
+                .andExpect(jsonPath("$.rules[0].serve").value(true));
+
+        assertThat(getFlag(admin, key).at("/environments/dev/rules/0/values/0").asText()).as("stored").isEqualTo("US");
+        assertThat(audit(admin, key).path(0).path("summary").asText()).isEqualTo("added rule: country in US, CA");
+        assertThat(audit(admin, key).path(0).path("actor").asText()).isEqualTo("editor");
+    }
+
+    @Test
+    void notInAttributeRuleServingOffIsAuditedThatWay() throws Exception {
+        String key = createFlag(admin, uniqueKey("attr-off"));
+
+        putRules(admin, key, "dev", "[{\"type\":\"attribute\",\"attribute\":\"country\",\"operator\":\"not_in\",\"values\":[\"US\"],\"serve\":false}]", false, 0)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rules[0].operator").value("not_in"))
+                .andExpect(jsonPath("$.rules[0].serve").value(false));
+
+        assertThat(audit(admin, key).path(0).path("summary").asText()).isEqualTo("added rule: country not in US (serves OFF)");
+    }
+
+    @ParameterizedTest(name = "{0} -> {1}")
+    @CsvSource(delimiter = '|', textBlock = """
+            {"type":"attribute","attribute":"country","values":["US"]}                         | rules[0].operator
+            {"type":"attribute","attribute":"country","operator":"equals","values":["US"]}     | rules[0].operator
+            {"type":"attribute","attribute":"country","operator":"not in","values":["US"]}     | rules[0].operator
+            {"type":"attribute","attribute":"Country","operator":"in","values":["US"]}         | rules[0].attribute
+            {"type":"attribute","attribute":"1x","operator":"in","values":["US"]}              | rules[0].attribute
+            {"type":"attribute","attribute":"","operator":"in","values":["US"]}                | rules[0].attribute
+            {"type":"attribute","operator":"in","values":["US"]}                               | rules[0].attribute
+            {"type":"attribute","attribute":"%s","operator":"in","values":["US"]}              | rules[0].attribute
+            {"type":"attribute","attribute":"country","operator":"in"}                         | rules[0].values
+            {"type":"attribute","attribute":"country","operator":"IN","values":["US"]}         | rules[0].operator
+            {"type":"attribute","attribute":"country","operator":"in","values":[]}             | rules[0].values
+            {"type":"attribute","attribute":"country","operator":"in","values":["US"," CA"]}   | rules[0].values[1]
+            """)
+    void invalidAttributeRulesAre400WithTheFieldNamed(String rule, String field) throws Exception {
+        String key = createFlag(admin, uniqueKey("attr-bad"));
+
+        // %s stands for a 65-character name, one over the limit.
+        putRules(admin, key, "dev", "[" + rule.replace("%s", "a".repeat(65)) + "]", false, 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].field").value(field));
+
+        assertThat(version(admin, key, "dev")).isZero();
+    }
+
+    @Test
+    void unknownRuleTypeMessageNamesEveryRuleType() throws Exception {
+        String key = createFlag(admin, uniqueKey("region"));
+
+        String detail = readJson(putRules(admin, key, "dev", "[{\"type\":\"region\",\"regions\":[\"EU\"]}]", false, 0)
+                        .andExpect(status().isBadRequest()))
+                .path("detail").asText();
+
+        assertThat(detail).isEqualTo("Unknown rule type 'region'. Use users, customers, percent or attribute.");
+        assertThat(detail).contains(RuleSpec.typeNames());
+    }
+
+    @Test
+    void allFourRuleTypesRoundTripInOneSave() throws Exception {
+        String key = createFlag(admin, uniqueKey("mixed"));
+        String rules = """
+                [{"type":"users","userIds":["u_102"]},
+                 {"type":"attribute","attribute":"country","operator":"not_in","values":["DE"],"serve":false},
+                 {"type":"customers","customerIds":["acme"]},
+                 {"type":"percent","percent":25},
+                 {"type":"attribute","attribute":"plan","operator":"in","values":["pro","team"]}]""";
+
+        putRules(admin, key, "prod", rules, false, 0).andExpect(status().isOk());
+
+        JsonNode saved = getFlag(admin, key).at("/environments/prod/rules");
+        assertThat(saved.findValuesAsText("type")).containsExactly("users", "attribute", "customers", "percent", "attribute");
+        assertThat(saved.path(1).path("operator").asText()).isEqualTo("not_in");
+        assertThat(saved.path(1).path("serve").asBoolean()).isFalse();
+        assertThat(saved.path(4).path("values").path(1).asText()).isEqualTo("team");
+        assertThat(saved.path(4).path("serve").asBoolean()).isTrue();
+        assertThat(saved.path(0).path("userIds").path(0).asText()).isEqualTo("u_102");
+        assertThat(saved.path(3).path("percent").asInt()).isEqualTo(25);
     }
 
     @Test

@@ -5,6 +5,7 @@ const RULE_LABELS: Record<string, string> = {
   users: "user ID list",
   customers: "customer list",
   percent: "% rollout",
+  attribute: "attribute",
 };
 
 /** Plain-words "why" for the debug panel. */

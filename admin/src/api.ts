@@ -25,7 +25,10 @@ export interface Environment {
 export type Rule =
   | { type: "users"; userIds: string[]; serve: boolean }
   | { type: "customers"; customerIds: string[]; serve: boolean }
-  | { type: "percent"; percent: number; serve: boolean };
+  | { type: "percent"; percent: number; serve: boolean }
+  | { type: "attribute"; attribute: string; operator: AttributeOperator; values: string[]; serve: boolean };
+
+export type AttributeOperator = "in" | "not_in";
 
 export interface EnvironmentState {
   enabled: boolean;

@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { Rule } from "./api";
-import { addIds, draftProblems, effectiveIds, fromDraft, hasRejectedText, isValidId, move, newDraft, parseIds, toDraft } from "./rules";
+import {
+  addIds,
+  ATTRIBUTE_NAME_RULE,
+  draftProblems,
+  effectiveIds,
+  fromDraft,
+  hasRejectedText,
+  ID_RULE,
+  isValidAttributeName,
+  isValidId,
+  move,
+  newDraft,
+  parseIds,
+  RULE_LABELS,
+  toDraft,
+  type DraftRule,
+} from "./rules";
 
 describe("parseIds", () => {
   it("accepts commas, spaces and newlines, and drops empties and duplicates", () => {
@@ -36,6 +52,8 @@ describe("drafts", () => {
       { type: "users", userIds: ["u_102", "u_207"], serve: true },
       { type: "customers", customerIds: ["acme"], serve: false },
       { type: "percent", percent: 10, serve: true },
+      { type: "attribute", attribute: "country", operator: "in", values: ["US", "CA"], serve: true },
+      { type: "attribute", attribute: "plan", operator: "not_in", values: ["free"], serve: false },
     ];
     expect(rules.map(toDraft).map(fromDraft)).toEqual(rules);
   });
@@ -85,3 +103,78 @@ describe("hasRejectedText", () => {
   });
 });
 
+describe("attribute rules", () => {
+  const attribute = (fields: Partial<Extract<DraftRule, { type: "attribute" }>>): DraftRule => ({
+    type: "attribute",
+    attribute: "country",
+    operator: "in",
+    ids: ["US"],
+    pending: "",
+    serve: true,
+    ...fields,
+  });
+
+  it("are added as 'Users by attribute'", () => {
+    expect(RULE_LABELS.attribute).toBe("Users by attribute");
+  });
+
+  it("load into the editor from the server's JSON", () => {
+    expect(toDraft({ type: "attribute", attribute: "country", operator: "in", values: ["US", "CA"], serve: true })).toEqual(
+      attribute({ ids: ["US", "CA"] }),
+    );
+  });
+
+  it("save as the server's JSON, in the server's key order, including typed values", () => {
+    const saved = fromDraft(attribute({ ids: ["US"], pending: "CA" }));
+
+    expect(JSON.stringify(saved)).toBe('{"type":"attribute","attribute":"country","operator":"in","values":["US","CA"],"serve":true}');
+  });
+
+  it("start empty, with 'is one of', serving ON", () => {
+    expect(newDraft("attribute")).toEqual(attribute({ attribute: "", ids: [] }));
+  });
+
+  it("hint while the name or values are missing", () => {
+    const hint = { message: "Add an attribute name and at least one value.", severity: "hint" };
+
+    expect(draftProblems([newDraft("attribute")]).get(0)).toEqual(hint);
+    expect(draftProblems([attribute({ attribute: "" })]).get(0)).toEqual(hint);
+    expect(draftProblems([attribute({ ids: [] })]).get(0)).toEqual(hint);
+    expect(draftProblems([attribute({})]).size).toBe(0);
+  });
+
+  it("reject a name the server would reject", () => {
+    expect(draftProblems([attribute({ attribute: "Country" })]).get(0)).toEqual({ message: ATTRIBUTE_NAME_RULE, severity: "error" });
+    expect(ATTRIBUTE_NAME_RULE).toBe("Use lowercase letters, digits and _, starting with a letter (max 64).");
+    expect(draftProblems([attribute({ attribute: "Country", ids: [] })]).get(0)?.severity).toBe("error");
+  });
+
+  it("mirror the server's name pattern", () => {
+    for (const ok of ["country", "app_version", "a", "a".repeat(64), "x9"]) expect(isValidAttributeName(ok), ok).toBe(true);
+    for (const bad of ["", "Country", "_country", "9lives", "app-version", " country", "a".repeat(65)]) {
+      expect(isValidAttributeName(bad), bad).toBe(false);
+    }
+  });
+
+  it("block saving while a typed value is malformed, like ID chips", () => {
+    for (const pending of [" CA x!", "C#A"]) {
+      const problem = draftProblems([attribute({ pending })]).get(0);
+      expect(problem?.severity, pending).toBe("error");
+    }
+    expect(draftProblems([attribute({ ids: ["C A"] })]).get(0)?.severity).toBe("error");
+    expect(hasRejectedText([attribute({ pending: "C#A" })])).toBe(true);
+    expect(hasRejectedText([attribute({ pending: "CA" })])).toBe(false);
+  });
+
+  it("call malformed values 'values', not IDs, keeping the character rule", () => {
+    expect(draftProblems([attribute({ ids: ["C A"] })]).get(0)?.message).toBe(`Fix the values first. ${ID_RULE}`);
+    expect(draftProblems([attribute({ pending: "C#A" })]).get(0)?.message).toBe(`Fix "C#A" first. ${ID_RULE}`);
+    expect(draftProblems([{ type: "users", ids: ["u 1"], pending: "", serve: true }]).get(0)?.message).toBe(`Fix the IDs first. ${ID_RULE}`);
+  });
+
+  it("reorder like any other rule", () => {
+    const rules = [newDraft("users"), attribute({}), newDraft("percent")];
+
+    expect(move(rules, 1, 0).map(fromDraft).map((r) => r.type)).toEqual(["attribute", "users", "percent"]);
+  });
+});

@@ -1,0 +1,51 @@
+name: test
+
+# Runs ./test.sh, the same gate developers run before committing (AGENTS.md → Policy).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # test.sh uses a local JDK 21+ and Node 20+ when present; otherwise it falls back to Docker.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            sdk/package-lock.json
+            admin/package-lock.json
+            demo/package-lock.json
+
+      # Backend tests start Postgres through Testcontainers on the runner's Docker.
+      - name: Run all tests and builds
+        run: ./test.sh
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            engine/target/surefire-reports/
+            backend/target/surefire-reports/
+          if-no-files-found: ignore

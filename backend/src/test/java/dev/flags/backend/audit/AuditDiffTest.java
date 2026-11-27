@@ -2,6 +2,7 @@ package dev.flags.backend.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.flags.backend.flags.rules.AttributeRule;
 import dev.flags.backend.flags.rules.CustomersRule;
 import dev.flags.backend.flags.rules.PercentRule;
 import dev.flags.backend.flags.rules.RuleSpec;
@@ -36,6 +37,16 @@ class AuditDiffTest {
                 .isEqualTo("added rule: users u_102, u_207");
         assertThat(AuditDiff.rulesChanged(List.of(USERS, ACME), false, List.of(ACME), false))
                 .isEqualTo("removed rule: users u_102, u_207");
+    }
+
+    @Test
+    void attributeRulesInPlainWords() {
+        assertThat(AuditDiff.rulesChanged(List.of(), false,
+                        List.of(new AttributeRule("country", "in", List.of("US", "CA"), null)), false))
+                .isEqualTo("added rule: country in US, CA");
+        assertThat(AuditDiff.rulesChanged(List.of(), false,
+                        List.of(new AttributeRule("country", "not_in", List.of("US"), false)), false))
+                .isEqualTo("added rule: country not in US (serves OFF)");
     }
 
     @Test

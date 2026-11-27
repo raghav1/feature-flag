@@ -7,13 +7,15 @@ export interface DemoUser {
   name: string;
   userId?: string;
   customer?: string;
+  /** Sent as the `country` attribute; the seeded free-shipping rule targets CA in prod. */
+  country?: string;
 }
 
 export const DEMO_USERS: readonly DemoUser[] = [
-  { key: "u_102", name: "Ana", userId: "u_102" },
-  { key: "u_207", name: "Ben", userId: "u_207", customer: "acme" },
-  { key: "u_350", name: "Cy", userId: "u_350", customer: "acme" },
-  { key: "u_303", name: "Dee", userId: "u_303", customer: "zenith" },
+  { key: "u_102", name: "Ana", userId: "u_102", country: "US" },
+  { key: "u_207", name: "Ben", userId: "u_207", customer: "acme", country: "CA" },
+  { key: "u_350", name: "Cy", userId: "u_350", customer: "acme", country: "US" },
+  { key: "u_303", name: "Dee", userId: "u_303", customer: "zenith", country: "DE" },
   { key: "u_412", name: "Eli", userId: "u_412", customer: "zenith" },
   { key: "anonymous", name: "Anonymous visitor" },
 ];
@@ -22,8 +24,8 @@ const DEFAULT_USER = "u_207";
 
 export function label(user: DemoUser): string {
   const id = user.userId ? ` · ${user.userId}` : "";
-  const customer = user.customer ? ` (${user.customer})` : "";
-  return `${user.name}${id}${customer}`;
+  const details = [user.customer, user.country].filter(Boolean).join(", ");
+  return `${user.name}${id}${details ? ` (${details})` : ""}`;
 }
 
 /** The SDK's view of a demo user. Same object per demo user, so the SDK's cache lookups stay cheap. */
@@ -34,7 +36,10 @@ export function sdkUser(user: DemoUser): User {
   if (!mapped) {
     mapped = {
       ...(user.userId ? { id: user.userId } : {}),
-      attributes: user.customer ? { customer: user.customer } : {},
+      attributes: {
+        ...(user.customer ? { customer: user.customer } : {}),
+        ...(user.country ? { country: user.country } : {}),
+      },
     };
     SDK_USERS.set(user.key, mapped);
   }

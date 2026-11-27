@@ -1,0 +1,55 @@
+# feature-flags team overrides for bmad-build (committed; applies to everyone).
+# Merge rules: strings replace the default, lists append, arrays of tables merge by `id`.
+
+[workflow]
+
+# Architecture decisions every build must respect, loaded for the whole run.
+persistent_facts = [
+  "file:{project-root}/_bmad-output/planning-artifacts/architecture.md",
+  "docs/plan.md is the design source of truth; changes to architecture, data model, API or roles go into it first.",
+  "Stop and ask the user before: changing hashing or bucketing; adding an engine dependency; changing the API shape or the role matrix; editing a committed migration; adding scope beyond what was asked.",
+]
+
+# Same handoff as the default, plus this repo's definition of done.
+implementation_handoff = """
+Launch a subagent with no prior conversation context, with this prompt:
+> Read {spec_file} fully and implement it — the spec is the sole source of truth. Load every file listed in its frontmatter `context:` before you start. Also read `AGENTS.md` and the AD rules in `_bmad-output/planning-artifacts/architecture.md`; they bind this work.
+>
+> Write the failing test first, and see it fail. For engine changes, never edit the golden vectors in `BucketingTest`. New HTTP behaviour needs an `ApiTest`; anything about roles also needs a `RoleMatrixApiTest` row. A new dashboard capability needs an MCP tool too.
+>
+> Before reporting done, run `./test.sh` (Docker must be running) and include its last lines. If you renamed a UI label, update `qa/run.mjs` and name the QA case IDs to re-run.
+>
+> When done, report what you changed, how you verified it, and anything left incomplete or risky. Do not commit.
+"""
+
+on_complete = """
+Run `./test.sh` from the project root and show the final lines; if it isn't green, say so and stop.
+Then list: QA case IDs to re-run for any UI change (`qa/run.mjs <ID>`), any assumption that belongs in README → Assumptions,
+and any agent correction made during this run that belongs in `docs/ai-log.md`. Do not commit; the user decides.
+"""
+
+# Extra reviewer: this repo's invariants, checked item by item.
+# Keep this prompt in step with the oneshot copy below (TOML can't share one string between tables).
+[[workflow.review_layers]]
+id = "repo-invariants"
+name = "Repo Invariants Reviewer"
+instruction = """
+Launch a context-free subagent with this prompt:
+You review a diff against the feature-flags repo's own rules. Read `{project-root}/_bmad/custom/review-checklist.md` completely, then read `{project-root}/AGENTS.md` and `{project-root}/_bmad-output/planning-artifacts/architecture.md` for the rules it cites.
+Review content: the unified diff at `{diff_file}`. Read that file — it is the content under review. Open other repo files only to confirm a finding.
+Answer every checklist item as PASS, FAIL or N/A. For each FAIL give the file and line from the diff, the rule (AD-n or AGENTS.md line) and a one-line fix. List FAILs first.
+Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
+"""
+
+# The oneshot route (small stories) has its own reviewer list; run the repo's checklist there too.
+# It reviews the worktree, since oneshot has no diff file. Keep in step with the review_layers copy above.
+[[workflow.oneshot_review_layers]]
+id = "repo-invariants"
+name = "Repo Invariants Reviewer"
+instruction = """
+Launch a context-free subagent with this prompt:
+You review a change against the feature-flags repo's own rules. Read `{project-root}/_bmad/custom/review-checklist.md` completely, then read `{project-root}/AGENTS.md` and `{project-root}/_bmad-output/planning-artifacts/architecture.md` for the rules it cites.
+Review content: every uncommitted change in the current worktree — `git status`, `git diff`, and every new untracked file, including docs/, qa/, README.md and _bmad-output/ (checklist items 4 and 19 depend on docs). Skip binary files and anything that was untracked before this change if the story spec says so. Open other repo files only to confirm a finding.
+Answer every checklist item as PASS, FAIL or N/A. For each FAIL give the file and line, the rule (AD-n or AGENTS.md line) and a one-line fix. List FAILs first.
+Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
+"""

@@ -8,6 +8,8 @@ import dev.flags.backend.audit.AuditLog;
 import dev.flags.backend.audit.AuditQuery;
 import dev.flags.backend.auth.AppUser;
 import dev.flags.backend.auth.CurrentUser;
+import dev.flags.backend.contexts.AttributeNames;
+import dev.flags.backend.contexts.ContextIds;
 import dev.flags.backend.contexts.ContextKind;
 import dev.flags.backend.contexts.ContextService;
 import dev.flags.backend.environments.EnvironmentService;
@@ -71,7 +73,10 @@ class AdminTools {
             {"type": "string", "description": "Environment key, e.g. dev or prod (see list_environments)"}""";
     private static final String VERSION = """
             {"type": "integer", "minimum": 0, "description": "The environment's current version from get_flag. A stale version is rejected so you never overwrite a change you haven't seen."}""";
-    private static final String ID = "{\"type\": \"string\", \"pattern\": \"^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$\"}";
+    // Patterns come from the same constants the REST validation uses (AD-14); neither contains a JSON-escaped character.
+    private static final String ID = "{\"type\": \"string\", \"pattern\": \"%s\"}".formatted(ContextIds.PATTERN);
+    private static final String ATTRIBUTE_NAME = "{\"type\": \"string\", \"pattern\": \"%s\", \"description\": \"Context attribute, e.g. country or plan\"}"
+            .formatted(AttributeNames.PATTERN);
 
     private final FlagService flags;
     private final EnvironmentService environments;
@@ -276,14 +281,15 @@ class AdminTools {
                         {"type": "object", "properties": {
                           "key": %s, "environment": %s,
                           "rules": {"type": "array", "maxItems": 50, "items": {"oneOf": [
-                            {"type": "object", "properties": {"type": {"const": "users"}, "userIds": {"type": "array", "items": %s, "minItems": 1}, "serve": {"type": "boolean"}}, "required": ["type", "userIds"]},
-                            {"type": "object", "properties": {"type": {"const": "customers"}, "customerIds": {"type": "array", "items": %s, "minItems": 1}, "serve": {"type": "boolean"}}, "required": ["type", "customerIds"]},
-                            {"type": "object", "properties": {"type": {"const": "percent"}, "percent": {"type": "integer", "minimum": 0, "maximum": 100}, "serve": {"type": "boolean"}}, "required": ["type", "percent"], "description": "Deterministic per user: the same user always gets the same answer, and raising the percent only adds users."}
+                            {"type": "object", "properties": {"type": {"const": "users"}, "userIds": {"type": "array", "items": %s, "minItems": 1, "maxItems": 1000}, "serve": {"type": "boolean"}}, "required": ["type", "userIds"]},
+                            {"type": "object", "properties": {"type": {"const": "customers"}, "customerIds": {"type": "array", "items": %s, "minItems": 1, "maxItems": 1000}, "serve": {"type": "boolean"}}, "required": ["type", "customerIds"]},
+                            {"type": "object", "properties": {"type": {"const": "percent"}, "percent": {"type": "integer", "minimum": 0, "maximum": 100}, "serve": {"type": "boolean"}}, "required": ["type", "percent"], "description": "Deterministic per user: the same user always gets the same answer, and raising the percent only adds users."},
+                            {"type": "object", "properties": {"type": {"const": "attribute"}, "attribute": %s, "operator": {"enum": ["in", "not_in"]}, "values": {"type": "array", "items": %s, "minItems": 1, "maxItems": 1000}, "serve": {"type": "boolean"}}, "required": ["type", "attribute", "operator", "values"], "description": "Matches when the context attribute (sent by the SDK, e.g. country) is in, or not in, the values. Exact and case-sensitive; a user without the attribute never matches either operator. Use the attribute names and values your app's SDK sends; nothing checks that a name has been seen."}
                           ]}},
                           "otherwise": {"type": "boolean", "description": "Served when the flag is ON and no rule matches"},
                           "version": %s
                         }, "required": ["key", "environment", "rules", "otherwise", "version"], "additionalProperties": false}"""
-                                .formatted(FLAG_KEY, ENVIRONMENT, ID, ID, VERSION),
+                                .formatted(FLAG_KEY, ENVIRONMENT, ID, ID, ATTRIBUTE_NAME, ID, VERSION),
                         DESTRUCTIVE,
                         args -> FlagView.EnvironmentView.of(flags.setRules(
                                 args.string("key"), args.string("environment"), rules(args.raw("rules")), args.bool("otherwise"),
@@ -336,7 +342,7 @@ class AdminTools {
             rules = json.convertValue(raw, new TypeReference<List<RuleSpec>>() {});
         } catch (IllegalArgumentException e) {
             if (e.getCause() instanceof InvalidTypeIdException t) {
-                throw new ToolInputException("Unknown rule type '" + t.getTypeId() + "'. Use users, customers or percent.");
+                throw new ToolInputException("Unknown rule type '" + t.getTypeId() + "'. Use " + RuleSpec.typeChoices() + ".");
             }
             throw new ToolInputException("'rules' must be a list of rule objects: " + e.getMessage());
         }

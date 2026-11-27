@@ -39,17 +39,18 @@ docker compose up --build
 | `new-dashboard` | ON, no rules, Otherwise ON | ON: users u_102, u_207 → customer acme → 10% → Otherwise OFF |
 | `beta-reports` | ON, no rules, Otherwise ON | ON: customer acme → Otherwise OFF |
 | `dark-mode` | ON, no rules, Otherwise ON | **OFF**; rule 25% (inactive while off) |
+| `free-shipping` | ON, no rules, Otherwise ON | ON: country in [CA] → Otherwise OFF |
 
 **Demo users and their expected prod results** (the oracle for most storefront tests):
 
-| User | Customer | new-dashboard | beta-reports | dark-mode |
-|---|---|---|---|---|
-| Ana · u_102 | – | ON, rule 1 (user ID list) | OFF, Otherwise | OFF, flag is OFF |
-| Ben · u_207 | acme | ON, rule 1 (user ID list) | ON, rule 1 (customer list) | OFF, flag is OFF |
-| Cy · u_350 | acme | ON, rule 2 (customer list) | ON, rule 1 (customer list) | OFF, flag is OFF |
-| Dee · u_303 | zenith | ON, rule 3 (% rollout) | OFF, Otherwise | OFF, flag is OFF |
-| Eli · u_412 | zenith | OFF, Otherwise | OFF, Otherwise | OFF, flag is OFF |
-| Anonymous | – | OFF, Otherwise (a % rule needs a user ID) | OFF, Otherwise | OFF, flag is OFF |
+| User | Customer | Country | new-dashboard | beta-reports | dark-mode | free-shipping |
+|---|---|---|---|---|---|---|
+| Ana · u_102 | – | US | ON, rule 1 (user ID list) | OFF, Otherwise | OFF, flag is OFF | OFF, Otherwise |
+| Ben · u_207 | acme | CA | ON, rule 1 (user ID list) | ON, rule 1 (customer list) | OFF, flag is OFF | ON, rule 1 (attribute) |
+| Cy · u_350 | acme | US | ON, rule 2 (customer list) | ON, rule 1 (customer list) | OFF, flag is OFF | OFF, Otherwise |
+| Dee · u_303 | zenith | DE | ON, rule 3 (% rollout) | OFF, Otherwise | OFF, flag is OFF | OFF, Otherwise |
+| Eli · u_412 | zenith | – | OFF, Otherwise | OFF, Otherwise | OFF, flag is OFF | OFF, Otherwise (no country) |
+| Anonymous | – | – | OFF, Otherwise (a % rule needs a user ID) | OFF, Otherwise | OFF, flag is OFF | OFF, Otherwise (no country) |
 
 In **dev**, every user gets every flag ON ("no rule matched → Otherwise ON"), so the store is dark.
 
@@ -93,7 +94,7 @@ In **dev**, every user gets every flag ON ("no rule matched → Otherwise ON"), 
 
 | ID | P | Steps | Expected |
 |---|---|---|---|
-| ADM-LIST-01 | P0 | Open Flags with seed data | Three rows. Each shows a **Live / Partial / Off in prod** badge (icon + word), key, description, an "On for …" sentence, dev and prod switches, last change (avatar, who, when) |
+| ADM-LIST-01 | P0 | Open Flags with seed data | Four rows (`new-dashboard`, `beta-reports`, `dark-mode`, `free-shipping`). Each shows a **Live / Partial / Off in prod** badge (icon + word), key, description, an "On for …" sentence, dev and prod switches, last change (avatar, who, when) |
 | ADM-LIST-02 | P0 | Read the seed sentences | `new-dashboard`: "On for users u_102 and u_207, customer acme and 10% of users" (Partial). `beta-reports`: "On for customer acme" (Partial). `dark-mode`: "Off for everyone" (Off) |
 | ADM-LIST-03 | P1 | Type in Search (key, then words from a description) | Filters as you type; "No flags match" empty state with a way to clear |
 | ADM-LIST-04 | P1 | Click the Live / Partial / Off filters | Counts are right; list filters; "All" resets |
@@ -134,6 +135,7 @@ In **dev**, every user gets every flag ON ("no rule matched → Otherwise ON"), 
 | ADM-RULE-15 | P1 | **No false conflict:** A edits rules (unsaved); B toggles the same flag in the same env; A saves | A's save succeeds (only the version moved) |
 | ADM-RULE-16 | P1 | A has no unsaved edits; B changes the rules | A's editor shows B's rules without a reload |
 | ADM-RULE-17 | P1 | Switch between the Development and Production tabs with unsaved edits | Behaviour is clear: edits kept per tab or a warning; never saved to the wrong env |
+| ADM-RULE-ATTR-01 | P0 | As editor, on a temporary flag ON in Development: add "Users by attribute", name `country`, "is not one of", values `US CA`, Save | Stored rule `{"type":"attribute","attribute":"country","operator":"not_in","values":["US","CA"],"serve":true}`; row reads "On for users whose country isn't US or CA"; no suggestion list in the values box |
 
 ### 4.6 Create, edit, delete
 

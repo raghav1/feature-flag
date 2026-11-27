@@ -1,4 +1,4 @@
-// Executes the top 25 QA cases (docs/qa-top-25.md) against a running stack, recording video and screenshots.
+// Executes the top 25 QA cases (docs/qa-top-25.md), plus cases added after them, against a running stack, recording video and screenshots.
 //   node run.mjs [--reset] [ID ...]
 // --reset recreates the QA compose project from seed data first. With IDs, only those cases run.
 import {
@@ -21,17 +21,21 @@ const SEED = {
     otherwise: false,
   },
   "beta-reports": { rules: [{ type: "customers", customerIds: ["acme"], serve: true }], otherwise: false },
+  "free-shipping": {
+    rules: [{ type: "attribute", attribute: "country", operator: "in", values: ["CA"], serve: true }],
+    otherwise: false,
+  },
 };
 
 const OTHERWISE_OFF = "no rule matched → Otherwise OFF";
-/** The prod oracle from the QA plan §2: [state, why] for new-dashboard and beta-reports. */
+/** The prod oracle from the QA plan §2: [state, why] for new-dashboard, beta-reports and free-shipping (V5). */
 const PROD_EXPECTED = {
-  u_102: { name: "Ana", nd: ["ON", "matched rule 1 (user ID list)"], br: ["OFF", OTHERWISE_OFF] },
-  u_207: { name: "Ben", nd: ["ON", "matched rule 1 (user ID list)"], br: ["ON", "matched rule 1 (customer list)"] },
-  u_350: { name: "Cy", nd: ["ON", "matched rule 2 (customer list)"], br: ["ON", "matched rule 1 (customer list)"] },
-  u_303: { name: "Dee", nd: ["ON", "matched rule 3 (% rollout)"], br: ["OFF", OTHERWISE_OFF] },
-  u_412: { name: "Eli", nd: ["OFF", OTHERWISE_OFF], br: ["OFF", OTHERWISE_OFF] },
-  anonymous: { name: "Anonymous", nd: ["OFF", OTHERWISE_OFF], br: ["OFF", OTHERWISE_OFF] },
+  u_102: { name: "Ana", nd: ["ON", "matched rule 1 (user ID list)"], br: ["OFF", OTHERWISE_OFF], fs: ["OFF", OTHERWISE_OFF] },
+  u_207: { name: "Ben", nd: ["ON", "matched rule 1 (user ID list)"], br: ["ON", "matched rule 1 (customer list)"], fs: ["ON", "matched rule 1 (attribute)"] },
+  u_350: { name: "Cy", nd: ["ON", "matched rule 2 (customer list)"], br: ["ON", "matched rule 1 (customer list)"], fs: ["OFF", OTHERWISE_OFF] },
+  u_303: { name: "Dee", nd: ["ON", "matched rule 3 (% rollout)"], br: ["OFF", OTHERWISE_OFF], fs: ["OFF", OTHERWISE_OFF] },
+  u_412: { name: "Eli", nd: ["OFF", OTHERWISE_OFF], br: ["OFF", OTHERWISE_OFF], fs: ["OFF", OTHERWISE_OFF] },
+  anonymous: { name: "Anonymous", nd: ["OFF", OTHERWISE_OFF], br: ["OFF", OTHERWISE_OFF], fs: ["OFF", OTHERWISE_OFF] },
 };
 
 let admin; // API session used for setup and restores
@@ -46,6 +50,8 @@ async function restoreSeed() {
   }
   const dark = (await admin.flag("dark-mode")).environments.prod;
   if (dark.enabled) await admin.setEnabled("dark-mode", "prod", false);
+  const shipping = (await admin.flag("free-shipping")).environments.prod;
+  if (!shipping.enabled) await admin.setEnabled("free-shipping", "prod", true);
 }
 
 // ---------------------------------------------------------------- UI helpers
@@ -89,6 +95,8 @@ async function expectDebug(scope, flag, state, why) {
 }
 
 const pretty = (v) => JSON.stringify(v, null, 2);
+/** Temporary flag for ADM-RULE-ATTR-01, deleted after the case. */
+const ATTR_FLAG = "qa-attr-rule";
 
 // ---------------------------------------------------------------- the 25 cases
 
@@ -103,7 +111,7 @@ const CASES = [
       await expect(page.getByRole("button", { name: /New flag/ })).toHaveCount(0);
       await expect(page.getByRole("button", { name: /API keys/ })).toHaveCount(0);
       const switches = page.getByRole("switch");
-      expect(await switches.count()).toBe(6);
+      expect(await switches.count()).toBe(8); // 4 seeded flags (V2 + free-shipping in V5) × dev and prod
       for (const s of await switches.all()) await expect(s).toBeDisabled();
       await t.shot(page, "list");
       await t.step("Expanded flag: read-only notes, no rule controls, no edit or delete");
@@ -337,6 +345,8 @@ const CASES = [
         await expectDebug(page, "dark-mode", "OFF", "flag is OFF in prod");
         await expect(page.locator(`main [data-flag="${exp.nd[0] === "ON" ? "new-dashboard" : "classic-home"}"]`)).toBeVisible();
         await expect(page.locator('main [data-flag="beta-reports"]')).toHaveCount(exp.br[0] === "ON" ? 1 : 0);
+        await expectDebug(page, "free-shipping", ...exp.fs);
+        await expect(page.locator('main [data-flag="free-shipping"]')).toHaveCount(exp.fs[0] === "ON" ? 1 : 0);
         await t.shot(page, exp.name.toLowerCase());
       }
     },
@@ -351,7 +361,8 @@ const CASES = [
       await t.step("Switch to Dev");
       await page.getByRole("radio", { name: "Dev" }).click();
       await expect(page.locator(".page")).toHaveAttribute("data-theme", "dark");
-      for (const f of ["new-dashboard", "beta-reports", "dark-mode"]) await expectDebug(page, f, "ON", "no rule matched → Otherwise ON");
+      for (const f of ["new-dashboard", "beta-reports", "dark-mode", "free-shipping"]) await expectDebug(page, f, "ON", "no rule matched → Otherwise ON");
+      await expect(page.locator('main [data-flag="free-shipping"]')).toBeVisible();
       const bg = await page.locator(".page").evaluate((el) => getComputedStyle(el).backgroundColor);
       expect(bg).toBe("rgb(21, 27, 35)"); // --canvas-subtle in the shared dark tokens (#151b23)
       t.note(`Dark background ${bg} = shared token --canvas-subtle #151b23`);
@@ -777,6 +788,41 @@ const CASES = [
       ]);
       await t.shot(page, "evidence");
     },
+  },
+  // ------------------------------------------------ Added after the top 25
+  {
+    id: "ADM-RULE-ATTR-01", area: "Admin", title: "An editor targets users by attribute in dev",
+    expected: "Saved as country not_in [US, CA]; row reads \"On for users whose country isn't US or CA\"; no suggestions",
+    async fn(t) {
+      await admin.call("DELETE", `/api/flags/${ATTR_FLAG}`);
+      await admin.call("POST", "/api/flags", { key: ATTR_FLAG, description: "QA: attribute rule (temporary)" });
+      await admin.setEnabled(ATTR_FLAG, "dev", true);
+      const page = await adminPage(t, "editor");
+      const contextCalls = [];
+      page.on("request", (r) => { if (r.url().includes("/api/contexts")) contextCalls.push(r.url()); });
+      await expand(page, ATTR_FLAG);
+      await page.getByRole("tab", { name: /Development/ }).click();
+      await t.step("Add rule: Users by attribute; country, is not one of, US CA; Save");
+      await page.getByRole("group", { name: "Add rule" }).getByRole("button", { name: "Users by attribute" }).click();
+      await page.getByRole("textbox", { name: "Rule 1 attribute name" }).fill("country");
+      await page.getByRole("combobox", { name: "Rule 1 operator" }).selectOption({ label: "is not one of" });
+      const values = page.getByRole("combobox", { name: "Rule 1 values" });
+      await values.pressSequentially("u");
+      await page.waitForTimeout(1000);
+      await expect(page.getByRole("listbox")).toHaveCount(0);
+      expect(contextCalls).toEqual([]);
+      await values.fill("");
+      await values.pressSequentially("US CA");
+      await page.getByRole("button", { name: "Save dev rules" }).click();
+      await expect(page.getByText("Saved.")).toBeVisible();
+      await expect(page.locator(".status-sentence")).toHaveText("On for users whose country isn't US or CA");
+      const stored = (await admin.flag(ATTR_FLAG)).environments.dev.rules;
+      expect(stored).toEqual([{ type: "attribute", attribute: "country", operator: "not_in", values: ["US", "CA"], serve: true }]);
+      expect(contextCalls).toEqual([]);
+      t.note(`Stored dev rules: ${JSON.stringify(stored)}`);
+      await t.shot(page, "saved");
+    },
+    cleanup: async () => { await admin.call("DELETE", `/api/flags/${ATTR_FLAG}`); },
   },
 ].map((c, i) => ({ ...c, n: i + 1 }));
 

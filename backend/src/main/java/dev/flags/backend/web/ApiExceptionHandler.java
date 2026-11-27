@@ -5,6 +5,7 @@ import dev.flags.backend.error.ConflictException;
 import dev.flags.backend.error.ForbiddenException;
 import dev.flags.backend.error.NotFoundException;
 import dev.flags.backend.error.UnauthorizedException;
+import dev.flags.backend.flags.rules.RuleSpec;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -69,7 +70,7 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         String detail = e.getMostSpecificCause() instanceof InvalidTypeIdException t
-                ? "Unknown rule type '%s'. Use users, customers or percent.".formatted(t.getTypeId())
+                ? "Unknown rule type '%s'. Use %s.".formatted(t.getTypeId(), RuleSpec.typeChoices())
                 : "Request body is missing or is not valid JSON for this endpoint.";
         return ResponseEntity.badRequest().body(ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail));
     }

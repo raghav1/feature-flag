@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiError, type EnvironmentState, type Rule } from "./api";
-import { ArrowDown, ArrowUp, Building2, Globe, PieChart, Plus, Trash2, Users, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, Globe, PieChart, Plus, Tag, Trash2, Users, type LucideIcon } from "lucide-react";
 import { IdListInput } from "./IdListInput";
 import { refreshFlag } from "./queries";
 import { RULE_LABELS, draftProblems, fromDraft, hasRejectedText, move, newDraft, toDraft, type DraftRule } from "./rules";
@@ -151,6 +151,39 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
                       % of users
                     </span>
                   </div>
+                ) : rule.type === "attribute" ? (
+                  <div className="attribute-rule">
+                    <span className="attribute-rule-head">
+                      <input
+                        value={rule.attribute}
+                        disabled={!canEdit}
+                        aria-label={`Rule ${i + 1} attribute name`}
+                        placeholder="Attribute, e.g. country"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        onChange={(e) => update(i, { ...rule, attribute: e.target.value })}
+                      />
+                      <select
+                        value={rule.operator}
+                        disabled={!canEdit}
+                        aria-label={`Rule ${i + 1} operator`}
+                        onChange={(e) => update(i, { ...rule, operator: e.target.value === "not_in" ? "not_in" : "in" })}
+                      >
+                        <option value="in">is one of</option>
+                        <option value="not_in">is not one of</option>
+                      </select>
+                    </span>
+                    <IdListInput
+                      ids={rule.ids}
+                      pending={rule.pending}
+                      onChange={(ids, pending) => update(i, { ...rule, ids, pending })}
+                      disabled={!canEdit}
+                      label={`Rule ${i + 1} values`}
+                      placeholder="Type a value, e.g. US"
+                    />
+                  </div>
                 ) : (
                   <IdListInput
                     kind={rule.type === "users" ? "user" : "customer"}
@@ -185,7 +218,7 @@ export function RuleEditor({ flagKey, env, state, canEdit }: RuleEditorProps) {
         <div className="rule-footer">
           <span className="add-rule" role="group" aria-label="Add rule">
             <span className="muted small">Add rule:</span>
-            {(["users", "customers", "percent"] as const).map((type) => {
+            {(["users", "customers", "percent", "attribute"] as const).map((type) => {
               const Icon = RULE_ICONS[type];
               return (
                 <button key={type} type="button" className="chip-button" onClick={() => setDrafts((d) => [...d, newDraft(type)])}>
@@ -233,6 +266,7 @@ const RULE_ICONS: Record<DraftRule["type"], LucideIcon> = {
   users: Users,
   customers: Building2,
   percent: PieChart,
+  attribute: Tag,
 };
 
 /** Two-button ON/OFF control: what this rule (or "everyone else") gets. */
